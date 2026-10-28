@@ -1,0 +1,54 @@
+{
+  "format": 1,
+  "title": {
+    "en": "Session cleanup market",
+    "zh": "会话清理插件源"
+  },
+  "description": {
+    "en": "A plugin index for the DeepSeek Harness session-cleanup bundle.",
+    "zh": "会话清理插件的索引源。"
+  },
+  "metadata": {
+    "categories": {},
+    "labels": {},
+    "sortKeys": {}
+  },
+  "plugins": [
+    {
+      "name": "@local/session-cleanup",
+      "title": {
+        "en": "Session Cleanup",
+        "zh": "会话清理"
+      },
+      "description": {
+        "en": "Adds a sidebar panel that lists workspace sessions to archive, restore, or permanently delete their stored logs.",
+        "zh": "在侧栏新增会话清理面板，按工作区列出会话，可归档、恢复或永久删除磁盘上的会话日志。"
+      },
+      "icon": "https://raw.githubusercontent.com/username/session-cleanup/0000000000000000000000000000000000000000/icon.svg",
+      "homepage": "https://github.com/username/session-cleanup",
+      "repository": {
+        "url": "https://github.com/username/session-cleanup"
+      },
+      "metadata": {
+        "keywords": [
+          "session",
+          "cleanup",
+          "delete",
+          "workspace"
+        ]
+      },
+      "versions": [
+        {
+          "version": "1.0.0",
+          "publishTimestamp": 1761600000,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/username/session-cleanup",
+            "commit": "0000000000000000000000000000000000000000"
+          },
+          "engines": {}
+        }
+      ]
+    }
+  ]
+}
