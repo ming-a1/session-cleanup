@@ -2,7 +2,7 @@
 
 给 DeepSeek Harness 的侧栏加一个「会话清理」面板：按工作区列出所有会话，可以**归档/恢复**，也可以**永久删除**磁盘上的会话日志。
 
-![icon](icon.svg)
+<img src="icon.svg" alt="会话清理图标" width="72" height="72">
 
 ## 能做什么
 
