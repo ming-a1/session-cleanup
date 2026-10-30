@@ -1500,6 +1500,11 @@ window.__ModuleLoader__.load({
 
       const archivedSet = useMemo(() => new Set(archivedIds), [archivedIds]);
       const pinnedSet = useMemo(() => new Set(pinnedIds), [pinnedIds]);
+      const pinRank = useMemo(() => {
+        const ranks = new Map();
+        pinnedIds.forEach((id, index) => ranks.set(id, index));
+        return ranks;
+      }, [pinnedIds]);
 
       const [search, setSearch] = useState('');
       const [scope, setScope] = useState('all');
@@ -1633,6 +1638,13 @@ window.__ModuleLoader__.load({
             const leftArchived = archivedSet.has(left.id) ? 1 : 0;
             const rightArchived = archivedSet.has(right.id) ? 1 : 0;
             if (leftArchived !== rightArchived) return leftArchived - rightArchived;
+            const leftPin = pinRank.get(left.id);
+            const rightPin = pinRank.get(right.id);
+            if (leftPin !== undefined || rightPin !== undefined) {
+              if (leftPin === undefined) return 1;
+              if (rightPin === undefined) return -1;
+              return leftPin - rightPin;
+            }
             return (right.updatedAt || 0) - (left.updatedAt || 0);
           };
           roots.sort(compare);
@@ -1640,7 +1652,7 @@ window.__ModuleLoader__.load({
           out.push({ key: group.key, title: group.title, path: group.path, rows, children, roots });
         }
         return out;
-      }, [groups, scope, archivedSet, showArchived, search]);
+      }, [groups, scope, archivedSet, showArchived, search, pinRank]);
 
       // Collapsed is the default: every parent starts folded. A search query
       // unfolds matches so a matching child is never hidden behind its parent.
