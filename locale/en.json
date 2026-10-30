@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Session Cleanup",
-    "description": "Adds a sidebar panel that lists workspace sessions to archive, restore, or permanently delete their stored logs."
+    "description": "Adds a sidebar panel that lists workspace sessions to archive, delete to a recycle bin, restore, and inspect conversation transcripts."
   }
 }

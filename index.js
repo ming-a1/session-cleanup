@@ -11,12 +11,23 @@
  * the directory from the backend's own root and validates it before removing
  * anything (see `lib/cleanup.js`).
  */
-import { resolve as resolvePath } from 'node:path';
+import { basename, dirname, resolve as resolvePath } from 'node:path';
 
 import { deleteSession, normalizeSessionIds, previewSession } from './lib/cleanup.js';
+import { buildTranscript } from './lib/transcript.js';
+import {
+  listEntries,
+  moveIntoTrash,
+  purgeEntry,
+  purgeExpired,
+  refreshExpiry,
+  readRetentionDays,
+  restoreEntry,
+  writeRetentionDays,
+} from './lib/trash.js';
 
 /** Services the deletion path and its browser route require. */
-export const inject = ['sessionPersistence', 'sessions', 'agents', 'connection', 'webServer', 'workspaceRegistry'];
+export const inject = ['sessionPersistence', 'sessionQuery', 'sessions', 'agents', 'connection', 'webServer', 'workspaceRegistry'];
 
 /** Same-origin endpoint owned by this bundle. */
 const ROUTE = '/session-cleanup/delete';
@@ -112,6 +123,8 @@ async function removeSession(ctx, root, id) {
   const agent = ctx.agents.get(id);
   const live = ctx.sessions.get(id) !== undefined;
   if (agent !== undefined && agent.status === 'running') return { id, status: 'running', live };
+  const file = await previewSession(root, id);
+  if (file.status !== 'deletable') return { ...file, live };
   let archived = false;
   if (live) {
     try {
@@ -122,19 +135,30 @@ async function removeSession(ctx, root, id) {
       ctx.logger?.warn?.(`session-cleanup: could not archive '${id}' before deletion: ${messageOf(error)}`);
     }
   }
-  const file = await deleteSession(root, id);
-  if (file.status === 'deleted') {
-    if (!live) await forgetRegistryState(ctx, id);
-    return { ...file, live };
-  }
-  if (archived) {
-    try {
-      await ctx.workspaceRegistry.unarchiveSession(id);
-    } catch (error) {
-      ctx.logger?.warn?.(`session-cleanup: could not restore archive state for '${id}': ${messageOf(error)}`);
+  try {
+    const project = basename(dirname(file.path));
+    const title = await sessionTitle(ctx, id);
+    await moveIntoTrash({
+      root,
+      sessionDir: file.path,
+      id,
+      project,
+      title,
+      sizeBytes: file.bytes,
+      live,
+    });
+  } catch (error) {
+    if (archived) {
+      try {
+        await ctx.workspaceRegistry.unarchiveSession(id);
+      } catch {
+        // Best-effort visibility restore.
+      }
     }
+    throw error;
   }
-  return { ...file, live };
+  if (!live) await forgetRegistryState(ctx, id);
+  return { ...file, status: 'deleted', trashed: true, live };
 }
 
 /**
@@ -199,6 +223,100 @@ function readBody(req) {
 }
 
 /**
+ * Read one session's latest title, when the Host can provide it.
+ *
+ * @param ctx - plugin context.
+ * @param sessionId - session id.
+ * @returns title text, or undefined.
+ */
+async function sessionTitle(ctx, sessionId) {
+  try {
+    const snapshot = await ctx.sessionQuery.readTitle(sessionId);
+    if (snapshot !== undefined && typeof snapshot.title === 'string' && snapshot.title.length > 0) return snapshot.title;
+  } catch {
+    // Titles are optional enrichment.
+  }
+  return undefined;
+}
+
+/**
+ * Read one session's user/assistant text as a bounded transcript.
+ *
+ * The log is the source of truth, so a live session and a cold one read the
+ * same way. Only text blocks are surfaced; reasoning, tool calls, and tool
+ * results stay out of this compact view.
+ *
+ * @param ctx - plugin context.
+ * @param sessionId - session to read.
+ * @returns transcript item.
+ */
+async function readTranscript(ctx, sessionId) {
+  let log;
+  try {
+    log = await ctx.sessionQuery.readSession(sessionId);
+  } catch (error) {
+    if (error !== null && typeof error === 'object' && error.code === 'SESSION_QUERY_SESSION_NOT_FOUND') {
+      return { id: sessionId, status: 'missing' };
+    }
+    throw error;
+  }
+  const header = log.session;
+  const title = await sessionTitle(ctx, sessionId);
+  const transcript = buildTranscript(log.events);
+  let sizeBytes;
+  try {
+    const snapshot = await ctx.sessionPersistence.stat(sessionId);
+    if (snapshot !== undefined) sizeBytes = snapshot.sizeBytes;
+  } catch {
+    sizeBytes = undefined;
+  }
+  return {
+    id: sessionId,
+    status: 'ok',
+    title,
+    cwd: header.cwd,
+    createdAt: header.createdAt,
+    sizeBytes,
+    turns: transcript.turns,
+    stats: transcript.stats,
+    total: transcript.total,
+    truncated: transcript.truncated,
+  };
+}
+
+/**
+ * Answer with one JSON body.
+ *
+ * @param res - response.
+ * @param status - HTTP status.
+ * @param value - JSON-serializable value.
+ */
+function respondJson(res, status, value) {
+  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify(value));
+}
+
+/**
+ * Validate one trash entry-id list.
+ *
+ * @param value - untrusted payload value.
+ * @returns `{ ids }` or `{ error }`.
+ */
+function normalizeEntryIds(value) {
+  if (!Array.isArray(value)) return { error: 'entryIds must be an array of strings' };
+  const ids = [];
+  for (const entry of value) {
+    if (typeof entry !== 'string' || !/^[^./\\][^/\\]*$/.test(entry) || entry.length > 1024) {
+      return { error: 'each entry id must be one plain directory name' };
+    }
+    if (!ids.includes(entry)) ids.push(entry);
+  }
+  if (ids.length === 0) return { error: 'entryIds must not be empty' };
+  if (ids.length > 200) return { error: 'at most 200 entries per request' };
+  return { ids };
+}
+
+/**
  * Answer one browser call.
  *
  * @param ctx - plugin context.
@@ -232,8 +350,73 @@ async function handleRoute(ctx, req, res) {
       throw new RouteError(400, 'body is not JSON');
     }
     const action = payload?.action;
+    if (action === 'transcript') {
+      const sessionId = payload?.sessionId;
+      if (typeof sessionId !== 'string' || sessionId.length === 0 || sessionId.length > 1024) {
+        throw new RouteError(400, 'sessionId must be a non-empty string');
+      }
+      const item = await readTranscript(ctx, sessionId);
+      respondJson(res, 200, { action: 'transcript', item });
+      return;
+    }
+    if (action === 'orphans') {
+      const ids = [];
+      for (const session of ctx.sessions.list()) {
+        let stored;
+        try {
+          stored = await ctx.sessionPersistence.stat(session.id);
+        } catch {
+          stored = undefined;
+        }
+        if (stored === undefined) ids.push(session.id);
+      }
+      respondJson(res, 200, { action, ids });
+      return;
+    }
+    if (action === 'trash-list') {
+      const root = resolveRoot(ctx);
+      await purgeExpired(root);
+      const items = await listEntries(root);
+      const retentionDays = await readRetentionDays(root);
+      respondJson(res, 200, { action, retentionDays, items });
+      return;
+    }
+    if (action === 'trash-settings') {
+      const root = resolveRoot(ctx);
+      const stored = await writeRetentionDays(root, payload?.retentionDays);
+      await purgeExpired(root);
+      await refreshExpiry(root, stored);
+      respondJson(res, 200, { action, retentionDays: stored });
+      return;
+    }
+    if (action === 'trash-restore' || action === 'trash-purge') {
+      const normalizedEntries = normalizeEntryIds(payload?.entryIds);
+      if (normalizedEntries.error !== undefined) throw new RouteError(400, normalizedEntries.error);
+      const root = resolveRoot(ctx);
+      const items = [];
+      for (const entryId of normalizedEntries.ids) {
+        try {
+          if (action === 'trash-purge') {
+            await purgeEntry(root, entryId);
+            items.push({ entryId, status: 'purged' });
+          } else {
+            const meta = await restoreEntry(root, entryId);
+            try {
+              await ctx.workspaceRegistry.unarchiveSession(meta.id);
+            } catch {
+              // Restoring visibility is best-effort.
+            }
+            items.push({ entryId, status: 'restored', id: meta.id });
+          }
+        } catch (error) {
+          items.push({ entryId, status: 'failed', reason: messageOf(error) });
+        }
+      }
+      respondJson(res, 200, { action, items });
+      return;
+    }
     if (action !== 'preview' && action !== 'delete') {
-      throw new RouteError(400, 'action must be "preview" or "delete"');
+      throw new RouteError(400, 'action must be "preview", "delete", or "transcript"');
     }
     const normalized = normalizeSessionIds(payload?.sessionIds);
     if (normalized.error !== undefined) throw new RouteError(400, normalized.error);
@@ -261,7 +444,7 @@ function createTool(ctx) {
   return {
     name: 'session_cleanup',
     description:
-      'Inspect or permanently delete stored sessions by id. "preview" reports what the Host would remove; "delete" removes the session log directory from disk and cannot be undone. Always preview first, and only delete sessions the user explicitly asked to delete permanently.',
+      'Inspect or remove stored sessions by id. "preview" reports what the Host would move; "delete" moves the session log directories into the recycle bin, where they stay restorable until the retention period expires. Always preview first, and only remove sessions the user explicitly asked to delete.',
     parameters: {
       type: 'object',
       additionalProperties: false,
@@ -327,5 +510,20 @@ export function apply(ctx) {
 
   ctx.inject(['tools'], (toolCtx) => {
     toolCtx.tools.register(createTool(ctx));
+  });
+
+  ctx.inject(['timer'], (timerCtx) => {
+    timerCtx.effect(() => {
+      const sweep = () => {
+        try {
+          const root = resolveRoot(ctx);
+          void purgeExpired(root).catch((error) => ctx.logger?.warn?.(`session-cleanup: trash sweep failed: ${messageOf(error)}`));
+        } catch (error) {
+          ctx.logger?.warn?.(`session-cleanup: trash sweep skipped: ${messageOf(error)}`);
+        }
+      };
+      sweep();
+      return timerCtx.timer.interval(sweep, 3600000);
+    }, 'session-cleanup: trash retention sweep');
   });
 }

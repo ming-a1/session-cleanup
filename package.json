@@ -1,9 +1,9 @@
 {
   "name": "@local/session-cleanup",
-  "version": "1.0.0",
+  "version": "1.4.0",
   "private": true,
   "type": "module",
-  "description": "Session cleanup panel for DeepSeek Harness workspaces: list sessions and archive, restore, or permanently delete their stored logs.",
+  "description": "Session cleanup panel for DeepSeek Harness workspaces: archive, recycle-bin deletion, restore, and conversation transcripts.",
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",

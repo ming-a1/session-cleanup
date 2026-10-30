@@ -48,6 +48,7 @@ window.__ModuleLoader__.load({
       '.wsc-btn:disabled{opacity:.45;cursor:not-allowed}',
       '.wsc-btn-danger{color:var(--dsw-alias-state-error-primary);border-color:var(--dsw-alias-state-error-primary)}',
       '.wsc-btn-small{height:26px;padding:0 10px;border-radius:13px;font-size:12px}',
+      '.wsc-btn-refresh{min-width:86px;justify-content:center}',
       '.wsc-link{padding:2px 6px;border:0;border-radius:8px;background:none;color:var(--dsw-alias-brand-primary);font:inherit;font-size:12px;white-space:nowrap;cursor:pointer}',
       '.wsc-link:hover{background:var(--dsw-alias-bg-layer-2)}',
       '.wsc-group{margin:0 0 16px;overflow:hidden;border:.5px solid var(--dsw-alias-border-l1);border-radius:14px;background:var(--dsw-alias-bg-layer-1)}',
@@ -59,9 +60,12 @@ window.__ModuleLoader__.load({
       '.wsc-group-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500}',
       '.wsc-group-path{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-secondary);font-size:12px}',
       '.wsc-group-count{flex:none;margin-left:auto;color:var(--dsw-alias-label-secondary);font-size:12px}',
-      '.wsc-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:.5px solid var(--dsw-alias-border-l1)}',
+      '.wsc-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:.5px solid var(--dsw-alias-border-l1);transition:background-color .12s ease,box-shadow .12s ease}',
       '.wsc-row:last-child{border-bottom:0}',
-      '.wsc-row:hover,.wsc-row-selected{background:var(--dsw-alias-bg-layer-2)}',
+      '.wsc-row:hover{background:var(--dsw-alias-bg-layer-2)}',
+      '.wsc-row-selected{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 12%,transparent);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}',
+      '.wsc-row-selected:hover{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 17%,transparent)}',
+      '.wsc-row-selected .wsc-row-title-text{color:var(--dsw-alias-brand-primary)}',
       '.wsc-row-archived .wsc-row-title-text{color:var(--dsw-alias-label-secondary)}',
       '.wsc-check{flex:none;width:15px;height:15px;margin:0;accent-color:var(--dsw-alias-brand-primary);cursor:pointer}',
       '.wsc-row-body{display:flex;flex:1;flex-direction:column;gap:1px;min-width:0;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}',
@@ -69,7 +73,8 @@ window.__ModuleLoader__.load({
       '.wsc-row-caret{display:inline-flex;flex:none;color:var(--dsw-alias-label-secondary);transform:rotate(0deg);transition:transform .12s ease}',
       '.wsc-row-caret-open{transform:rotate(90deg)}',
       '.wsc-row-title-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
-      '.wsc-row-meta{display:flex;align-items:center;gap:6px;min-width:0;color:var(--dsw-alias-label-secondary);font-size:12px}',
+      '.wsc-row-meta{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;min-width:0;color:var(--dsw-alias-label-secondary);font-size:12px}',
+      '.wsc-row-id{flex:1 0 100%;min-width:0;overflow-wrap:anywhere;color:var(--dsw-alias-label-secondary);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;line-height:1.45}',
       '.wsc-row-meta-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
       '.wsc-badge{display:inline-flex;align-items:center;gap:4px;flex:none;height:17px;padding:0 6px;border:.5px solid var(--dsw-alias-border-l2);border-radius:999px;color:var(--dsw-alias-label-secondary);font-size:11px;line-height:1}',
       '.wsc-dot{flex:none;width:6px;height:6px;border-radius:50%;background:var(--dsw-alias-state-success-primary)}',
@@ -102,6 +107,47 @@ window.__ModuleLoader__.load({
       '.wsc-failure-id{color:var(--dsw-alias-label-primary);font-size:12px;font-family:var(--dsw-font-mono,monospace)}',
       '.wsc-dialog-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:14px}',
       '.wsc-progress{margin-right:auto;color:var(--dsw-alias-label-secondary);font-size:12px}',
+      '.wsc-transcript{display:flex;flex-direction:column;width:min(760px,100%);max-height:calc(100dvh - 48px);overflow:hidden;border:.5px solid var(--dsw-alias-border-l2);border-radius:16px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font-size:13px;box-shadow:0 16px 48px color-mix(in srgb,var(--dsw-alias-label-primary) 24%,transparent)}',
+      '.wsc-transcript-head{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-bottom:.5px solid var(--dsw-alias-border-l1)}',
+      '.wsc-back{flex:none;height:28px;padding:0 10px;border:.5px solid var(--dsw-alias-border-l2);border-radius:14px;background:transparent;color:inherit;font:inherit;font-size:12px;cursor:pointer}',
+      '.wsc-back:hover{background:var(--dsw-alias-bg-layer-2)}',
+      '.wsc-transcript-titles{flex:1;min-width:0}',
+      '.wsc-transcript-titles h2{margin:0;font-size:15px;font-weight:600;line-height:22px}',
+      '.wsc-transcript-sub{margin:1px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-secondary);font-size:12px}',
+      '.wsc-transcript-close{flex:none;width:28px;height:28px;border:0;border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary);font-size:18px;line-height:1;cursor:pointer}',
+      '.wsc-transcript-close:hover{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}',
+      '.wsc-transcript-body{overflow:auto;padding:14px 16px 18px}',
+      '.wsc-kv{display:flex;flex-direction:column;gap:5px;margin:0 0 16px}',
+      '.wsc-kv-row{display:flex;gap:12px;font-size:12.5px;line-height:1.5}',
+      '.wsc-kv-key{flex:none;width:84px;color:var(--dsw-alias-label-secondary)}',
+      '.wsc-kv-val{min-width:0;overflow-wrap:anywhere;color:var(--dsw-alias-label-primary)}',
+      '.wsc-section-title{margin:0 0 8px;font-size:13px;font-weight:600}',
+      '.wsc-turn{margin:0 0 8px;overflow:hidden;border:.5px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-base)}',
+      '.wsc-turn-head{display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}',
+      '.wsc-turn-head:hover{background:var(--dsw-alias-bg-layer-2)}',
+      '.wsc-turn-badge{display:inline-flex;align-items:center;flex:none;height:18px;padding:0 7px;border-radius:999px;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 12%,transparent);color:var(--dsw-alias-brand-primary);font-size:11px}',
+      '.wsc-turn-time{flex:none;color:var(--dsw-alias-label-secondary);font-size:11px}',
+      '.wsc-turn-tools{flex:none;color:var(--dsw-alias-label-secondary);font-size:11px}',
+      '.wsc-turn-caret{display:inline-flex;flex:none;margin-left:auto;color:var(--dsw-alias-label-secondary);transition:transform .12s ease}',
+      '.wsc-turn-caret-open{transform:rotate(90deg)}',
+      '.wsc-turn-question{margin:0 10px 9px;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 9%,transparent);color:var(--dsw-alias-brand-primary);font-size:13px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}',
+      '.wsc-turn-role-user{margin-right:6px;font-size:11px;font-weight:600;opacity:.85}',
+      '.wsc-turn-answer{border-top:.5px solid var(--dsw-alias-border-l1);padding:9px 10px 10px;background:var(--dsw-alias-bg-layer-2)}',
+      '.wsc-turn-role-assistant{display:block;margin-bottom:4px;color:var(--dsw-alias-label-secondary);font-size:11px;font-weight:600}',
+      '.wsc-turn-text{white-space:pre-wrap;overflow-wrap:anywhere;color:var(--dsw-alias-label-primary);font-size:12.5px;line-height:1.55}',
+      '.wsc-turn-muted{color:var(--dsw-alias-label-secondary)}',
+      '.wsc-turn-toollist{margin-top:6px;color:var(--dsw-alias-label-secondary);font-size:11px;overflow-wrap:anywhere}',
+      '.wsc-transcript-note{margin:0 0 10px;color:var(--dsw-alias-label-secondary);font-size:11px}',
+      '.wsc-trash-settings{display:flex;align-items:center;gap:8px;margin:0 0 12px;color:var(--dsw-alias-label-secondary);font-size:12.5px}',
+      '.wsc-trash-settings input{width:64px;height:28px;padding:0 6px;border:.5px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:12px}',
+      '.wsc-trash-row{display:flex;align-items:center;gap:10px;margin:0 0 8px;padding:10px;border:.5px solid var(--dsw-alias-border-l1);border-radius:12px}',
+      '.wsc-trash-main{flex:1;min-width:0}',
+      '.wsc-trash-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:var(--dsw-alias-label-primary)}',
+      '.wsc-trash-meta{margin-top:2px;overflow-wrap:anywhere;color:var(--dsw-alias-label-secondary);font-size:11.5px}',
+      '.wsc-trash-actions{display:flex;flex:none;gap:6px}',
+      '.wsc-confirm{margin:0 0 12px;padding:10px;border:.5px solid var(--dsw-alias-state-error-primary);border-radius:12px;background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 6%,transparent)}',
+      '.wsc-confirm-title{font-size:13px;font-weight:600;color:var(--dsw-alias-state-error-primary)}',
+      '.wsc-confirm p{margin:4px 0 0;color:var(--dsw-alias-label-secondary);font-size:12px;overflow-wrap:anywhere}',
       '.wsc-page :focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}',
       '@media (max-width:640px){.wsc-group-path{display:none}.wsc-content{padding:20px 16px 32px}.wsc-footer{padding:10px 16px}}',
     ].join('');
@@ -117,7 +163,7 @@ window.__ModuleLoader__.load({
       selectAll: '全选当前结果',
       clearAll: '取消全选',
       archiveSelected: '归档所选（{n}）',
-      purgeSelected: '永久删除（{n}）',
+      purgeSelected: '删除（{n}）',
       restoreSelected: '恢复所选（{n}）',
       selectedSummary: '已选择 {n} 个会话',
       noSelection: '勾选会话后可以归档、恢复或永久删除。',
@@ -135,7 +181,51 @@ window.__ModuleLoader__.load({
       archive: '归档',
       restore: '恢复',
       deletePermanently: '删除',
-      menuDelete: '永久删除会话',
+      menuDelete: '删除会话',
+      viewRecord: '查看',
+      transcriptTitle: '对话记录',
+      transcriptLoading: '正在读取对话…',
+      transcriptError: '读取失败：{message}',
+      transcriptMissing: '会话不存在或已被删除。',
+      transcriptEmpty: '没有可显示的对话内容。',
+      transcriptTruncated: '仅显示最近的 {n} 轮对话。',
+      transcriptBack: '返回',
+      transcriptCwd: '工作目录',
+      transcriptTurns: '对话轮次',
+      transcriptUserMessages: '用户消息',
+      transcriptToolCalls: '工具调用',
+      transcriptSize: '大小',
+      transcriptCreated: '创建于',
+      transcriptQuestions: '提问记录（共 {n} 条）',
+      transcriptTurn: '第 {n} 轮',
+      transcriptTools: '工具 {n} 次',
+      transcriptNoReply: '（无回复）',
+      transcriptUnknown: '未知',
+      trashOpen: '回收站',
+      refresh: '刷新',
+      refreshing: '刷新中…',
+      refreshFailed: '刷新失败：{message}',
+      trashTitle: '回收站',
+      trashLoading: '正在读取回收站…',
+      trashError: '读取失败：{message}',
+      trashEmpty: '回收站是空的。',
+      trashRetention: '保留天数',
+      trashSave: '保存',
+      trashSaved: '已保存',
+      trashDeletedAt: '删除于',
+      trashExpiresIn: '剩余 {n} 天',
+      trashRestore: '恢复',
+      trashPurge: '永久删除',
+      trashConfirmTitle: '永久删除这条记录？',
+      trashConfirmBody: '「{title}」将从磁盘彻底删除，无法恢复。',
+      trashConfirm: '确认永久删除',
+      trashCancel: '取消',
+      trashRestored: '已恢复 {n} 个会话。',
+      trashPurged: '已永久删除 {n} 条记录。',
+      trashFailed: '操作失败：{message}',
+      trashSize: '大小',
+      transcriptUser: '我',
+      transcriptAssistant: '助手',
       archiveConfirmTitle: '归档会话',
       archiveConfirmBody: '将把 {n} 个会话从工作区移除（归档）。会话文件保留，可在「显示已归档」中恢复。',
       archiveRunning: '其中 {n} 个会话正在运行。确认后会先停止这些会话的运行，再归档。',
@@ -148,43 +238,37 @@ window.__ModuleLoader__.load({
       cancel: '取消',
       close: '关闭',
       working: '处理中…',
-      purgeTitle: '永久删除会话',
-      purgeBody: '将永久删除 {n} 个会话的日志文件，无法恢复。这只是删除，不是归档。',
+      purgeTitle: '删除会话',
+      purgeBody: '将把 {n} 个会话移到回收站。保留期默认 7 天、以回收站里的设置为准，期间可恢复；到期后自动永久删除。',
       purgeChecking: '正在检查 {n} 个会话…',
       purgeCheckFailed: '检查失败：{message}',
       purgeHostUnavailable: 'Host 端删除接口尚未加载，请重启 dsh web 后重试。',
       purgeRetry: '重试',
       purgeRunFailed: '删除请求失败：{message}',
-      purgeSummary: '可永久删除 {n} 个，共 {size}。',
+      purgeSummary: '将移入回收站 {n} 个，共 {size}。',
       purgeNothingDeletable: '所选会话都无法删除。',
-      purgeIrreversible: '删除直接作用于磁盘，没有回收站，无法撤销。',
+      purgeIrreversible: '删除只是移入回收站，可随时恢复；要彻底删除请到回收站里操作。',
       purgeBlockedTitle: '{n} 个无法删除：',
       purgeNamesAria: '将要永久删除的会话',
       purgeReasonRunning: '会话正在运行（或还有后台任务在跑），等这一轮结束后再删除。',
-      purgeLiveNote: '其中 {n} 个会话仍加载在内存中。文件会立即删除并自动归档隐藏，但重启 dsh web 后才会从列表里彻底消失。',
+      purgeLiveNote: '其中 {n} 个会话仍加载在内存中。文件会移到回收站并自动归档隐藏，重启 dsh web 后才会从列表里彻底消失。',
       purgeReasonMissing: '磁盘上找不到该会话的日志目录，可能已被删除。',
       purgeReasonUnsafe: '目录内容不符合会话日志结构，出于安全已中止。',
       purgeReasonUnsafeDetail: '目录内容不符合会话日志结构，已中止：{detail}',
       purgeReasonFailed: '删除失败。',
       purgeReasonFailedDetail: '删除失败：{detail}',
       purgeReasonUnknown: '无法删除。',
-      purgeConfirm: '永久删除',
+      purgeConfirm: '移到回收站',
       purgeRunning: '正在永久删除 {n} 个会话…',
       processing: '正在处理 {done}/{total}…',
-      purgeDone: '已永久删除 {n} 个会话。',
-      purgeDoneNotice: '已永久删除 {n} 个会话。',
+      purgeDone: '已移入回收站 {n} 个会话。',
+      purgeDoneNotice: '已移入回收站 {n} 个会话。',
       groupCount: '{n} 个',
       childCount: '{n} 个子代理',
       selectGroup: '全选本组',
       clearGroup: '取消本组',
       collapse: '收起',
       expand: '展开',
-      now: '刚刚',
-      minutesAgo: '{n} 分钟前',
-      hoursAgo: '{n} 小时前',
-      daysAgo: '{n} 天前',
-      monthsAgo: '{n} 个月前',
-      yearsAgo: '{n} 年前',
     };
 
     const en = {
@@ -198,7 +282,7 @@ window.__ModuleLoader__.load({
       selectAll: 'Select all results',
       clearAll: 'Clear selection',
       archiveSelected: 'Archive selected ({n})',
-      purgeSelected: 'Delete permanently ({n})',
+      purgeSelected: 'Delete ({n})',
       restoreSelected: 'Restore selected ({n})',
       selectedSummary: '{n} selected',
       noSelection: 'Select sessions to archive, restore, or delete permanently.',
@@ -216,7 +300,51 @@ window.__ModuleLoader__.load({
       archive: 'Archive',
       restore: 'Restore',
       deletePermanently: 'Delete',
-      menuDelete: 'Delete session permanently',
+      menuDelete: 'Delete session',
+      viewRecord: 'View',
+      transcriptTitle: 'Conversation',
+      transcriptLoading: 'Loading conversation…',
+      transcriptError: 'Failed to load: {message}',
+      transcriptMissing: 'The session no longer exists.',
+      transcriptEmpty: 'No messages to show.',
+      transcriptTruncated: 'Showing only the last {n} turns.',
+      transcriptBack: 'Back',
+      transcriptCwd: 'Directory',
+      transcriptTurns: 'Turns',
+      transcriptUserMessages: 'User messages',
+      transcriptToolCalls: 'Tool calls',
+      transcriptSize: 'Size',
+      transcriptCreated: 'Created',
+      transcriptQuestions: 'Questions ({n})',
+      transcriptTurn: 'Turn {n}',
+      transcriptTools: '{n} tool calls',
+      transcriptNoReply: '(no reply)',
+      transcriptUnknown: 'Unknown',
+      trashOpen: 'Recycle bin',
+      refresh: 'Refresh',
+      refreshing: 'Refreshing…',
+      refreshFailed: 'Refresh failed: {message}',
+      trashTitle: 'Recycle bin',
+      trashLoading: 'Loading the recycle bin…',
+      trashError: 'Failed to load: {message}',
+      trashEmpty: 'The recycle bin is empty.',
+      trashRetention: 'Keep for (days)',
+      trashSave: 'Save',
+      trashSaved: 'Saved',
+      trashDeletedAt: 'Deleted',
+      trashExpiresIn: '{n} days left',
+      trashRestore: 'Restore',
+      trashPurge: 'Delete permanently',
+      trashConfirmTitle: 'Delete this entry permanently?',
+      trashConfirmBody: '“{title}” will be removed from disk for good.',
+      trashConfirm: 'Delete permanently',
+      trashCancel: 'Cancel',
+      trashRestored: 'Restored {n} sessions.',
+      trashPurged: 'Permanently deleted {n} entries.',
+      trashFailed: 'Failed: {message}',
+      trashSize: 'Size',
+      transcriptUser: 'You',
+      transcriptAssistant: 'Assistant',
       archiveConfirmTitle: 'Archive sessions',
       archiveConfirmBody: 'This removes {n} sessions from their workspaces (archives them). The stored logs are kept and can be restored with “Show archived”.',
       archiveRunning: '{n} of them are running. Confirming stops their running work first, then archives them.',
@@ -229,43 +357,37 @@ window.__ModuleLoader__.load({
       cancel: 'Cancel',
       close: 'Close',
       working: 'Working…',
-      purgeTitle: 'Delete sessions permanently',
-      purgeBody: 'This permanently deletes the stored logs of {n} sessions. It cannot be undone. This is deletion, not archiving.',
+      purgeTitle: 'Delete sessions',
+      purgeBody: 'This moves {n} sessions to the recycle bin. They are kept for 7 days by default (adjustable in the bin) and can be restored until then; expired entries are deleted permanently.',
       purgeChecking: 'Checking {n} sessions…',
       purgeCheckFailed: 'Check failed: {message}',
       purgeHostUnavailable: 'The Host deletion endpoint is not loaded yet. Restart dsh web and try again.',
       purgeRetry: 'Retry',
       purgeRunFailed: 'The delete request failed: {message}',
-      purgeSummary: '{n} can be deleted permanently, {size} in total.',
+      purgeSummary: '{n} will move to the recycle bin, {size} in total.',
       purgeNothingDeletable: 'None of the selected sessions can be deleted.',
-      purgeIrreversible: 'Deletion acts on the stored files directly. There is no trash, and it cannot be undone.',
+      purgeIrreversible: 'Deleting only moves sessions to the recycle bin; permanent deletion happens there.',
       purgeBlockedTitle: '{n} cannot be deleted:',
       purgeNamesAria: 'Sessions to delete permanently',
       purgeReasonRunning: 'The session is running (or still owns background work); wait for the turn to finish, then delete it.',
-      purgeLiveNote: '{n} of them are still loaded in memory. Their files are deleted right away and the rows are archived to hide them, but they disappear from the list only after dsh web restarts.',
+      purgeLiveNote: '{n} of them are still loaded in memory. Their files move to the recycle bin and the rows are archived to hide them, but they disappear from the list only after dsh web restarts.',
       purgeReasonMissing: 'No stored log directory was found; it may already be deleted.',
       purgeReasonUnsafe: 'The directory does not look like a session log, so deletion was aborted.',
       purgeReasonUnsafeDetail: 'The directory does not look like a session log, so deletion was aborted: {detail}',
       purgeReasonFailed: 'Deletion failed.',
       purgeReasonFailedDetail: 'Deletion failed: {detail}',
       purgeReasonUnknown: 'Cannot delete.',
-      purgeConfirm: 'Delete permanently',
+      purgeConfirm: 'Move to recycle bin',
       purgeRunning: 'Deleting {n} sessions permanently…',
       processing: 'Working {done}/{total}…',
-      purgeDone: 'Permanently deleted {n} sessions.',
-      purgeDoneNotice: 'Permanently deleted {n} sessions.',
+      purgeDone: 'Moved {n} sessions to the recycle bin.',
+      purgeDoneNotice: 'Moved {n} sessions to the recycle bin.',
       groupCount: '{n}',
       childCount: '{n} subagents',
       selectGroup: 'Select group',
       clearGroup: 'Clear group',
       collapse: 'Collapse',
       expand: 'Expand',
-      now: 'just now',
-      minutesAgo: '{n} min ago',
-      hoursAgo: '{n} h ago',
-      daysAgo: '{n} d ago',
-      monthsAgo: '{n} mo ago',
-      yearsAgo: '{n} y ago',
     };
 
     function basename(path) {
@@ -274,18 +396,24 @@ window.__ModuleLoader__.load({
       return parts.length > 0 ? parts[parts.length - 1] : String(path);
     }
 
-    function relativeTime(updatedAt, now, t) {
-      if (!Number.isFinite(updatedAt)) return '';
-      const diff = Math.max(0, now - updatedAt);
-      const minute = 60000;
-      const hour = 3600000;
-      const day = 86400000;
-      if (diff < minute) return t('now');
-      if (diff < hour) return t('minutesAgo', { n: Math.floor(diff / minute) });
-      if (diff < day) return t('hoursAgo', { n: Math.floor(diff / hour) });
-      if (diff < 30 * day) return t('daysAgo', { n: Math.floor(diff / day) });
-      if (diff < 365 * day) return t('monthsAgo', { n: Math.floor(diff / (30 * day)) });
-      return t('yearsAgo', { n: Math.floor(diff / (365 * day)) });
+    /** Local `YYYY-MM-DD HH:mm:ss` spelling. */
+    function formatDateTime(ms) {
+      if (!Number.isFinite(ms)) return '';
+      const date = new Date(ms);
+      const pad = (value) => String(value).padStart(2, '0');
+      return (
+        date.getFullYear() +
+        '-' +
+        pad(date.getMonth() + 1) +
+        '-' +
+        pad(date.getDate()) +
+        ' ' +
+        pad(date.getHours()) +
+        ':' +
+        pad(date.getMinutes()) +
+        ':' +
+        pad(date.getSeconds())
+      );
     }
 
     function formatBytes(bytes) {
@@ -478,6 +606,44 @@ window.__ModuleLoader__.load({
       );
     }
 
+    /** Read one session's transcript through the bundle's Host route. */
+    async function callTranscript(sessionId) {
+      const response = await fetch(DELETE_ROUTE, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'transcript', sessionId }),
+      });
+      let body = null;
+      try {
+        body = await response.json();
+      } catch {
+        body = null;
+      }
+      if (!response.ok) throw new Error(body !== null && typeof body.error === 'string' ? body.error : 'HTTP ' + response.status);
+      if (body === null || body.item === undefined) throw new Error('unexpected transcript response');
+      return body.item;
+    }
+
+    /** Call one recycle-bin action through the bundle's Host route. */
+    async function callTrash(action, payload = {}) {
+      const response = await fetch(DELETE_ROUTE, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action, ...payload }),
+      });
+      let body = null;
+      try {
+        body = await response.json();
+      } catch {
+        body = null;
+      }
+      if (!response.ok) throw new Error(body !== null && typeof body.error === 'string' ? body.error : 'HTTP ' + response.status);
+      if (body === null) throw new Error('unexpected trash response');
+      return body;
+    }
+
     /** Sidebar glyph: a session list with a delete cross. */
     function CleanupIcon({ size = 18, active = false }) {
       return h(
@@ -539,17 +705,17 @@ window.__ModuleLoader__.load({
       return h('span', { className: 'wsc-badge' }, dot ? h('span', { className: 'wsc-dot' }) : null, children);
     }
 
-    function SessionRow({ row, depth, childCount, expanded, archived, pinned, selected, open, now, t, onToggleSelection, onToggleExpand, onArchive, onRestore, onDelete }) {
-      const title = row.displayTitle || row.title || t('unnamed');
+    function SessionRow({ row, depth, childCount, expanded, archived, pinned, selected, open, t, onToggleSelection, onToggleExpand, onArchive, onRestore, onDelete, onView }) {
+      const display = row.displayTitle || row.title || '';
+      const title = display !== '' && display !== String(row.id) ? display : t('unnamed');
       const badges = [];
       if (row.running) badges.push(h(Badge, { key: 'running', dot: true }, t('running')));
       if (open) badges.push(h(Badge, { key: 'open' }, t('openBadge')));
       if (pinned) badges.push(h(Badge, { key: 'pinned' }, t('pinned')));
       if (row.origin === 'subagent') badges.push(h(Badge, { key: 'subagent' }, t('subagent')));
       if (archived) badges.push(h(Badge, { key: 'archived' }, t('archived')));
-      const meta = [relativeTime(row.updatedAt, now, t)];
+      const meta = [formatDateTime(row.updatedAt)];
       if (row.cwd) meta.push(basename(row.cwd));
-      meta.push(String(row.id).slice(0, 8));
       return h(
         'div',
         {
@@ -581,11 +747,17 @@ window.__ModuleLoader__.load({
             badges,
             childCount > 0 ? h(Badge, { key: 'children' }, t('childCount', { n: childCount })) : null,
           ),
-          h('span', { className: 'wsc-row-meta' }, h('span', { className: 'wsc-row-meta-text' }, meta.filter(Boolean).join(' · '))),
+          h(
+            'span',
+            { className: 'wsc-row-meta' },
+            meta.filter(Boolean).length > 0 ? h('span', { className: 'wsc-row-meta-text' }, meta.filter(Boolean).join(' · ')) : null,
+            h('span', { className: 'wsc-row-id', title: String(row.id) }, String(row.id)),
+          ),
         ),
         h(
           'div',
           { className: 'wsc-row-actions' },
+          h('button', { type: 'button', className: 'wsc-btn wsc-btn-small', onClick: () => onView(row.id) }, t('viewRecord')),
           archived
             ? h('button', { type: 'button', className: 'wsc-btn wsc-btn-small', onClick: () => onRestore(row.id) }, t('restore'))
             : h('button', { type: 'button', className: 'wsc-btn wsc-btn-small', onClick: () => onArchive(row.id) }, t('archive')),
@@ -593,6 +765,375 @@ window.__ModuleLoader__.load({
             'button',
             { type: 'button', className: 'wsc-btn wsc-btn-small wsc-btn-danger', onClick: () => onDelete(row.id) },
             t('deletePermanently'),
+          ),
+        ),
+      );
+    }
+
+    function TranscriptDialog({ id, t, onClose }) {
+      const dialogRef = useRef(null);
+      const backRef = useRef(null);
+      const [phase, setPhase] = useState('loading');
+      const [item, setItem] = useState(null);
+      const [error, setError] = useState(null);
+      const [openTurn, setOpenTurn] = useState(null);
+      const closeRef = useRef(onClose);
+      closeRef.current = onClose;
+
+      useEffect(() => {
+        let cancelled = false;
+        void (async () => {
+          try {
+            const value = await callTranscript(id);
+            if (cancelled) return;
+            setItem(value);
+            setPhase(value.status === 'ok' ? 'ready' : 'missing');
+          } catch (failure) {
+            if (cancelled) return;
+            setError(failure);
+            setPhase('error');
+          }
+        })();
+        return () => {
+          cancelled = true;
+        };
+      }, [id]);
+
+      useEffect(() => {
+        if (backRef.current !== null) backRef.current.focus();
+      }, [phase]);
+
+      const handleKeyDown = (event) => {
+        if (event.key === 'Escape') {
+          event.stopPropagation();
+          closeRef.current();
+          return;
+        }
+        if (event.key !== 'Tab') return;
+        const root = dialogRef.current;
+        if (root === null) return;
+        const nodes = root.querySelectorAll('button, input, select, a[href]');
+        const focusables = [];
+        for (let index = 0; index < nodes.length; index += 1) {
+          if (!nodes[index].disabled) focusables.push(nodes[index]);
+        }
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      };
+
+      const toggleTurn = (index) => {
+        setOpenTurn((previous) => (previous === index ? null : index));
+      };
+
+      const title = item !== null && typeof item.title === 'string' && item.title.length > 0 ? item.title : String(id);
+      const turns = item !== null && Array.isArray(item.turns) ? item.turns : [];
+      const stats = item !== null && item.stats !== undefined ? item.stats : { turns: 0, userMessages: 0, toolCalls: 0 };
+
+      const rows = [];
+      if (item !== null && item.status === 'ok') {
+        rows.push(['transcriptCwd', item.cwd !== undefined ? item.cwd : t('transcriptUnknown')]);
+        rows.push(['transcriptTurns', String(stats.turns)]);
+        rows.push(['transcriptUserMessages', String(stats.userMessages)]);
+        rows.push(['transcriptToolCalls', String(stats.toolCalls)]);
+        rows.push(['transcriptSize', Number.isFinite(item.sizeBytes) ? formatBytes(item.sizeBytes) : t('transcriptUnknown')]);
+        rows.push(['transcriptCreated', Number.isFinite(item.createdAt) ? formatDateTime(item.createdAt) : t('transcriptUnknown')]);
+      }
+
+      return h(
+        'div',
+        {
+          className: 'wsc-overlay',
+          onMouseDown: (event) => {
+            if (event.target === event.currentTarget) onClose();
+          },
+          onKeyDown: handleKeyDown,
+        },
+        h(
+          'div',
+          { className: 'wsc-transcript', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'wsc-transcript-title', ref: dialogRef, tabIndex: -1 },
+          h(
+            'div',
+            { className: 'wsc-transcript-head' },
+            h('button', { type: 'button', className: 'wsc-back', ref: backRef, onClick: onClose }, '← ' + t('transcriptBack')),
+            h(
+              'div',
+              { className: 'wsc-transcript-titles' },
+              h('h2', { id: 'wsc-transcript-title' }, t('transcriptTitle')),
+              h('p', { className: 'wsc-transcript-sub', title }, title),
+            ),
+            h('button', { type: 'button', className: 'wsc-transcript-close', 'aria-label': t('close'), onClick: onClose }, '×'),
+          ),
+          h(
+            'div',
+            { className: 'wsc-transcript-body' },
+            phase === 'loading' ? h('p', null, t('transcriptLoading')) : null,
+            phase === 'error'
+              ? h('p', { className: 'wsc-dialog-warn' }, t('transcriptError', { message: error !== null && error !== undefined && error.message ? error.message : String(error) }))
+              : null,
+            phase === 'missing' ? h('p', { className: 'wsc-dialog-warn' }, t('transcriptMissing')) : null,
+            phase === 'ready'
+              ? h(
+                  React.Fragment,
+                  null,
+                  h(
+                    'div',
+                    { className: 'wsc-kv' },
+                    rows.map(([key, value]) =>
+                      h(
+                        'div',
+                        { key, className: 'wsc-kv-row' },
+                        h('span', { className: 'wsc-kv-key' }, t(key)),
+                        h('span', { className: 'wsc-kv-val' }, String(value)),
+                      ),
+                    ),
+                  ),
+                  h('h3', { className: 'wsc-section-title' }, t('transcriptQuestions', { n: stats.userMessages })),
+                  turns.length === 0 ? h('p', { className: 'wsc-empty' }, t('transcriptEmpty')) : null,
+                  turns.map((turn) => {
+                    const open = openTurn === turn.index;
+                    return h(
+                      'div',
+                      { className: 'wsc-turn', key: String(turn.index) + '-' + String(turn.time) },
+                      h(
+                        'button',
+                        { type: 'button', className: 'wsc-turn-head', 'aria-expanded': open, onClick: () => toggleTurn(turn.index) },
+                        h('span', { className: 'wsc-turn-badge' }, t('transcriptTurn', { n: turn.index })),
+                        h('span', { className: 'wsc-turn-time' }, Number.isFinite(turn.time) ? formatDateTime(turn.time) : ''),
+                        h('span', { className: 'wsc-turn-tools' }, t('transcriptTools', { n: Array.isArray(turn.tools) ? turn.tools.length : 0 })),
+                        h('span', { className: 'wsc-turn-caret' + (open ? ' wsc-turn-caret-open' : ''), 'aria-hidden': 'true' }, h(CaretIcon)),
+                      ),
+                      h(
+                        'div',
+                        { className: 'wsc-turn-question' },
+                        turn.userText.length > 0 ? h('span', { className: 'wsc-turn-role-user' }, t('transcriptUser')) : null,
+                        turn.userText.length > 0 ? turn.userText : t('transcriptUnknown'),
+                      ),
+                      open
+                        ? h(
+                            'div',
+                            { className: 'wsc-turn-answer' },
+                            h('span', { className: 'wsc-turn-role-assistant' }, t('transcriptAssistant')),
+                            turn.assistantText.length > 0
+                              ? h('div', { className: 'wsc-turn-text' }, turn.assistantText)
+                              : h('div', { className: 'wsc-turn-text wsc-turn-muted' }, t('transcriptNoReply')),
+                            Array.isArray(turn.tools) && turn.tools.length > 0 ? h('div', { className: 'wsc-turn-toollist' }, turn.tools.join(' · ')) : null,
+                          )
+                        : null,
+                    );
+                  }),
+                  item !== null && item.truncated === true ? h('p', { className: 'wsc-transcript-note' }, t('transcriptTruncated', { n: item.total })) : null,
+                )
+              : null,
+          ),
+        ),
+      );
+    }
+
+    function TrashDialog({ t, onClose, onChanged }) {
+      const dialogRef = useRef(null);
+      const backRef = useRef(null);
+      const [phase, setPhase] = useState('loading');
+      const [items, setItems] = useState([]);
+      const [retentionInput, setRetentionInput] = useState('7');
+      const [error, setError] = useState(null);
+      const [pending, setPending] = useState(null);
+      const [busy, setBusy] = useState(false);
+      const [notice, setNotice] = useState(null);
+      const closeRef = useRef(onClose);
+      closeRef.current = onClose;
+
+      const messageOf = (failure) => (failure !== null && failure !== undefined && failure.message ? failure.message : String(failure));
+
+      const load = useCallback(async () => {
+        setPhase('loading');
+        setError(null);
+        try {
+          const body = await callTrash('trash-list');
+          setItems(Array.isArray(body.items) ? body.items : []);
+          setRetentionInput(String(body.retentionDays));
+          setPhase('ready');
+        } catch (failure) {
+          setError(failure);
+          setPhase('error');
+        }
+      }, []);
+
+      useEffect(() => {
+        void load();
+      }, [load]);
+
+      useEffect(() => {
+        if (backRef.current !== null) backRef.current.focus();
+      }, [phase]);
+
+      const handleKeyDown = (event) => {
+        if (event.key === 'Escape') {
+          event.stopPropagation();
+          if (!busy) closeRef.current();
+          return;
+        }
+        if (event.key !== 'Tab') return;
+        const root = dialogRef.current;
+        if (root === null) return;
+        const nodes = root.querySelectorAll('button, input, select, a[href]');
+        const focusables = [];
+        for (let index = 0; index < nodes.length; index += 1) {
+          if (!nodes[index].disabled) focusables.push(nodes[index]);
+        }
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      };
+
+      const restore = async (entry) => {
+        if (busy) return;
+        setBusy(true);
+        setNotice(null);
+        try {
+          await callTrash('trash-restore', { entryIds: [entry.entryId] });
+          await load();
+          setNotice(t('trashRestored', { n: 1 }));
+          if (typeof onChanged === 'function') onChanged();
+        } catch (failure) {
+          setNotice(t('trashFailed', { message: messageOf(failure) }));
+        } finally {
+          setBusy(false);
+        }
+      };
+
+      const purge = async (entry) => {
+        if (busy) return;
+        setBusy(true);
+        setNotice(null);
+        try {
+          await callTrash('trash-purge', { entryIds: [entry.entryId] });
+          setPending(null);
+          await load();
+          setNotice(t('trashPurged', { n: 1 }));
+          if (typeof onChanged === 'function') onChanged();
+        } catch (failure) {
+          setNotice(t('trashFailed', { message: messageOf(failure) }));
+        } finally {
+          setBusy(false);
+        }
+      };
+
+      const saveRetention = async () => {
+        if (busy) return;
+        setBusy(true);
+        setNotice(null);
+        try {
+          const body = await callTrash('trash-settings', { retentionDays: Number(retentionInput) });
+          setRetentionInput(String(body.retentionDays));
+          await load();
+          setNotice(t('trashSaved'));
+        } catch (failure) {
+          setNotice(t('trashFailed', { message: messageOf(failure) }));
+        } finally {
+          setBusy(false);
+        }
+      };
+
+      const titleOf = (entry) => (typeof entry.title === 'string' && entry.title.length > 0 ? entry.title : entry.id);
+
+      return h(
+        'div',
+        {
+          className: 'wsc-overlay',
+          onMouseDown: (event) => {
+            if (event.target === event.currentTarget && !busy) onClose();
+          },
+          onKeyDown: handleKeyDown,
+        },
+        h(
+          'div',
+          { className: 'wsc-transcript', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'wsc-trash-title', ref: dialogRef, tabIndex: -1 },
+          h(
+            'div',
+            { className: 'wsc-transcript-head' },
+            h('button', { type: 'button', className: 'wsc-back', ref: backRef, onClick: onClose }, '← ' + t('transcriptBack')),
+            h('div', { className: 'wsc-transcript-titles' }, h('h2', { id: 'wsc-trash-title' }, t('trashTitle'))),
+            h('button', { type: 'button', className: 'wsc-transcript-close', 'aria-label': t('close'), onClick: onClose }, '×'),
+          ),
+          h(
+            'div',
+            { className: 'wsc-transcript-body' },
+            h(
+              'div',
+              { className: 'wsc-trash-settings' },
+              h('span', null, t('trashRetention')),
+              h('input', {
+                type: 'number',
+                min: 1,
+                max: 365,
+                value: retentionInput,
+                'aria-label': t('trashRetention'),
+                onChange: (event) => setRetentionInput(event.target.value),
+              }),
+              h('button', { type: 'button', className: 'wsc-btn wsc-btn-small', disabled: busy, onClick: saveRetention }, t('trashSave')),
+            ),
+            notice !== null ? h('p', { className: 'wsc-transcript-note' }, notice) : null,
+            phase === 'loading' ? h('p', null, t('trashLoading')) : null,
+            phase === 'error' ? h('p', { className: 'wsc-dialog-warn' }, t('trashError', { message: messageOf(error) })) : null,
+            phase === 'ready' && items.length === 0 ? h('p', { className: 'wsc-empty' }, t('trashEmpty')) : null,
+            pending !== null
+              ? h(
+                  'div',
+                  { className: 'wsc-confirm' },
+                  h('div', { className: 'wsc-confirm-title' }, t('trashConfirmTitle')),
+                  h('p', null, t('trashConfirmBody', { title: titleOf(pending) })),
+                  h(
+                    'div',
+                    { className: 'wsc-dialog-actions' },
+                    h('button', { type: 'button', className: 'wsc-btn', disabled: busy, onClick: () => setPending(null) }, t('trashCancel')),
+                    h('button', { type: 'button', className: 'wsc-btn wsc-btn-danger', disabled: busy, onClick: () => void purge(pending) }, t('trashConfirm')),
+                  ),
+                )
+              : null,
+            phase === 'ready'
+              ? items.map((entry) =>
+                  h(
+                    'div',
+                    { className: 'wsc-trash-row', key: entry.entryId },
+                    h(
+                      'div',
+                      { className: 'wsc-trash-main' },
+                      h('div', { className: 'wsc-trash-title', title: titleOf(entry) }, titleOf(entry)),
+                      h(
+                        'div',
+                        { className: 'wsc-trash-meta' },
+                        t('trashDeletedAt') +
+                          ' ' +
+                          formatDateTime(entry.deletedAt) +
+                          ' · ' +
+                          t('trashExpiresIn', { n: entry.expiresInDays }) +
+                          (Number.isFinite(entry.bytes) ? ' · ' + t('trashSize') + ' ' + formatBytes(entry.bytes) : ''),
+                      ),
+                    ),
+                    h(
+                      'div',
+                      { className: 'wsc-trash-actions' },
+                      h('button', { type: 'button', className: 'wsc-btn wsc-btn-small', disabled: busy, onClick: () => void restore(entry) }, t('trashRestore')),
+                      h('button', { type: 'button', className: 'wsc-btn wsc-btn-small wsc-btn-danger', disabled: busy, onClick: () => setPending(entry) }, t('trashPurge')),
+                    ),
+                  ),
+                )
+              : null,
           ),
         ),
       );
@@ -700,7 +1241,7 @@ window.__ModuleLoader__.load({
                     h(
                       'li',
                       { key: entry.id },
-                      h('div', { className: 'wsc-failure-id' }, String(entry.id).slice(0, 12)),
+                      h('div', { className: 'wsc-failure-id' }, String(entry.id)),
                       h('div', null, entry.message),
                     ),
                   ),
@@ -740,7 +1281,7 @@ window.__ModuleLoader__.load({
 
       const nameOf = (id) => {
         const label = labels !== undefined && labels !== null ? labels[id] : undefined;
-        return typeof label === 'string' && label.length > 0 ? label : String(id).slice(0, 12);
+        return typeof label === 'string' && label.length > 0 ? label : String(id);
       };
       const deletable = previewItems.filter((item) => item.status === 'deletable');
       const blocked = previewItems.filter((item) => item.status !== 'deletable');
@@ -967,15 +1508,33 @@ window.__ModuleLoader__.load({
       const [expanded, setExpanded] = useState(() => new Set());
       const [selected, setSelected] = useState(() => new Set());
       const [archiveRequest, setArchiveRequest] = useState(null);
+      const [transcriptId, setTranscriptId] = useState(null);
+      const [trashOpen, setTrashOpen] = useState(false);
+      const [refreshing, setRefreshing] = useState(false);
+      const [orphans, setOrphans] = useState(() => new Set());
+
+      // A session deleted while its Agent was still loaded stays in the Host's
+      // in-memory list with no storage left. It cannot be detached from here,
+      // so hide those rows: they are gone, not broken.
+      const refreshAll = useCallback(async () => {
+        setRefreshing(true);
+        try {
+          if (typeof refreshSessions === 'function') await refreshSessions();
+          const body = await callTrash('orphans');
+          setOrphans(new Set(Array.isArray(body.ids) ? body.ids : []));
+        } catch (failure) {
+          setNotice(t('refreshFailed', { message: failure !== null && failure !== undefined && failure.message ? failure.message : String(failure) }));
+        } finally {
+          setRefreshing(false);
+        }
+      }, [refreshSessions, t]);
+
+      useEffect(() => {
+        void refreshAll();
+      }, [refreshAll]);
       const [purgeIds, setPurgeIds] = useState(null);
       const [restoring, setRestoring] = useState(false);
       const [notice, setNotice] = useState(null);
-      const [now, setNow] = useState(() => Date.now());
-
-      useEffect(() => {
-        const timer = window.setInterval(() => setNow(Date.now()), 60000);
-        return () => window.clearInterval(timer);
-      }, []);
 
       useEffect(() => {
         if (notice === null) return undefined;
@@ -1047,6 +1606,7 @@ window.__ModuleLoader__.load({
           const rows = [];
           for (const row of group.sessions) {
             if (row.blank) continue;
+            if (orphans.has(row.id)) continue;
             const archived = archivedSet.has(row.id);
             if (archived && !showArchived) continue;
             if (query) {
@@ -1257,10 +1817,10 @@ window.__ModuleLoader__.load({
           });
           if (deleted.length > 0) {
             setNotice(t('purgeDoneNotice', { n: deleted.length }));
-            if (typeof refreshSessions === 'function') refreshSessions().catch(() => {});
+            void refreshAll();
           }
         },
-        [refreshSessions, t],
+        [refreshAll, t],
       );
 
       const labels = useMemo(() => {
@@ -1276,8 +1836,8 @@ window.__ModuleLoader__.load({
       const selectedArchived = selectedIds.filter((id) => archivedSet.has(id));
       const selectedActive = selectedIds.filter((id) => !archivedSet.has(id));
 
-      const totalCount = ids.filter((id) => byId[id] && !byId[id].blank).length;
-      const archivedCount = ids.filter((id) => archivedSet.has(id)).length;
+      const totalCount = ids.filter((id) => byId[id] && !byId[id].blank && !orphans.has(id)).length;
+      const archivedCount = ids.filter((id) => archivedSet.has(id) && !orphans.has(id)).length;
       const loading =
         (workspaces.length === 0 && workspaceState.phase !== 'ready') || (ids.length === 0 && sessionState.phase !== 'ready');
 
@@ -1331,12 +1891,9 @@ window.__ModuleLoader__.load({
                 h('input', { type: 'checkbox', checked: showArchived, onChange: (event) => setShowArchived(event.target.checked) }),
                 t('showArchived'),
               ),
+              h('button', { type: 'button', className: 'wsc-btn wsc-btn-refresh', disabled: refreshing, onClick: () => void refreshAll() }, refreshing ? t('refreshing') : t('refresh')),
+              h('button', { type: 'button', className: 'wsc-btn', onClick: () => setTrashOpen(true) }, t('trashOpen')),
               h('span', { className: 'wsc-spacer' }),
-              h(
-                'button',
-                { type: 'button', className: 'wsc-btn', disabled: filteredIds.size === 0, onClick: toggleAllVisible },
-                allSelected ? t('clearAll') : t('selectAll'),
-              ),
             ),
             visible.length === 0
               ? h('p', { className: 'wsc-empty' }, loading ? t('loading') : groups.length === 0 ? t('empty') : t('noMatches'))
@@ -1379,12 +1936,12 @@ window.__ModuleLoader__.load({
                             pinned: pinnedSet.has(row.id),
                             selected: selected.has(row.id),
                             open: retained,
-                            now,
                             t,
                             onToggleSelection: toggleSession,
                             onToggleExpand: toggleExpanded,
                             onArchive: (id) => requestArchive([id]),
                             onRestore: (id) => restoreIds([id]),
+                            onView: (id) => setTranscriptId(id),
                             onDelete: (id) => requestDeleteRow(id),
                           });
                         })
@@ -1400,6 +1957,9 @@ window.__ModuleLoader__.load({
             'div',
             { className: 'wsc-footer-inner' },
             h('span', { className: 'wsc-footer-info' }, selectedIds.length > 0 ? t('selectedSummary', { n: selectedIds.length }) : t('noSelection')),
+            selectedIds.length > 0 && !allSelected
+              ? h('button', { type: 'button', className: 'wsc-btn', onClick: toggleAllVisible }, t('selectAll'))
+              : null,
             selectedIds.length > 0
               ? h('button', { type: 'button', className: 'wsc-btn', onClick: () => setSelected(new Set()) }, t('clearAll'))
               : null,
@@ -1427,6 +1987,16 @@ window.__ModuleLoader__.load({
           ),
         ),
         notice !== null ? h('div', { className: 'wsc-notice', role: 'status', 'aria-live': 'polite' }, notice) : null,
+        transcriptId !== null ? h(TranscriptDialog, { id: transcriptId, t, onClose: () => setTranscriptId(null) }) : null,
+        trashOpen
+          ? h(TrashDialog, {
+              t,
+              onClose: () => setTrashOpen(false),
+              onChanged: () => {
+                void refreshAll();
+              },
+            })
+          : null,
         archiveRequest !== null
           ? h(ArchiveDialog, {
               request: archiveRequest,
