@@ -13,7 +13,13 @@
  */
 import { basename, dirname, resolve as resolvePath } from 'node:path';
 
-import { deleteSession, normalizeSessionIds, previewSession } from './lib/cleanup.js';
+import {
+  createArchive,
+  importArchive,
+  listStoredSessions,
+  readSessionFiles,
+} from './lib/backup.js';
+import { deleteSession, locateSessionDir, normalizeSessionIds, previewSession } from './lib/cleanup.js';
 import { buildTranscript } from './lib/transcript.js';
 import {
   listEntries,
@@ -31,6 +37,10 @@ export const inject = ['sessionPersistence', 'sessionQuery', 'sessions', 'agents
 
 /** Same-origin endpoint owned by this bundle. */
 const ROUTE = '/session-cleanup/delete';
+/** Backup upload endpoint; a restore may carry many megabytes. */
+const IMPORT_ROUTE = '/session-cleanup/import';
+/** Cap for one base64 import body. */
+const IMPORT_BODY_LIMIT = 128 * 1024 * 1024;
 /** Request body cap; a batch of ids is far smaller. */
 const BODY_LIMIT = 256 * 1024;
 /** Failure carrying the HTTP status the route should answer with. */
@@ -199,7 +209,7 @@ async function forgetRegistryState(ctx, sessionId) {
  * @param req - incoming request.
  * @returns body text.
  */
-function readBody(req) {
+function readBody(req, limit = BODY_LIMIT) {
   return new Promise((resolve, reject) => {
     let size = 0;
     let overflow = false;
@@ -207,7 +217,7 @@ function readBody(req) {
     req.on('data', (chunk) => {
       if (overflow) return;
       size += chunk.length;
-      if (size > BODY_LIMIT) {
+      if (size > limit) {
         overflow = true;
         chunks.length = 0;
         return;
@@ -317,6 +327,125 @@ function normalizeEntryIds(value) {
 }
 
 /**
+ * Gather stored sessions into an archive.
+ *
+ * @param ctx - plugin context.
+ * @param root - session persistence root.
+ * @param ids - exact ids, or undefined for every stored session.
+ * @returns archive bytes and the included count.
+ */
+async function buildBackup(ctx, root, ids) {
+  let targets;
+  if (ids === undefined) {
+    targets = await listStoredSessions(root);
+  } else {
+    targets = [];
+    for (const id of ids) {
+      const located = await locateSessionDir(root, id);
+      if (located.status !== 'found') continue;
+      targets.push({ id, project: basename(dirname(located.dir)), dir: located.dir });
+    }
+  }
+  const sessions = [];
+  for (const target of targets) {
+    const files = await readSessionFiles(target.dir);
+    if (Object.keys(files).length === 0) continue;
+    let header;
+    try {
+      header = (await ctx.sessionPersistence.stat(target.id))?.header;
+    } catch {
+      header = undefined;
+    }
+    sessions.push({
+      id: target.id,
+      project: target.project,
+      title: (await sessionTitle(ctx, target.id)) ?? '',
+      cwd: header?.cwd,
+      createdAt: header?.createdAt ?? Date.now(),
+      files,
+    });
+  }
+  if (sessions.length === 0) throw new RouteError(404, 'no stored sessions to export');
+  return { archive: createArchive(sessions), count: sessions.length };
+}
+
+/**
+ * Answer one backup download.
+ *
+ * @param ctx - plugin context.
+ * @param req - incoming request.
+ * @param res - response to complete.
+ * @param payload - parsed request body.
+ */
+async function handleExport(ctx, res, payload) {
+  const root = resolveRoot(ctx);
+  let ids;
+  if (payload?.sessionIds !== undefined) {
+    const normalized = normalizeSessionIds(payload.sessionIds);
+    if (normalized.error !== undefined) throw new RouteError(400, normalized.error);
+    ids = normalized.ids;
+  }
+  const { archive, count } = await buildBackup(ctx, root, ids);
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+$/, '').replace('T', '-');
+  res.writeHead(200, {
+    'content-type': 'application/gzip',
+    'content-disposition': `attachment; filename="dsh-sessions-${stamp}.tar.gz"`,
+    'content-length': String(archive.length),
+    'x-session-count': String(count),
+  });
+  res.end(archive);
+}
+
+/**
+ * Answer one backup import upload.
+ *
+ * @param ctx - plugin context.
+ * @param req - incoming request.
+ * @param res - response to complete.
+ */
+async function handleImport(ctx, req, res) {
+  try {
+    const rejection = ctx.connection.requestRejection({ headers: req.headers });
+    if (rejection !== undefined) {
+      res.writeHead(rejection);
+      res.end(rejection === 401 ? 'unauthorized' : 'forbidden');
+      return;
+    }
+    if (req.method !== 'POST') {
+      res.writeHead(405, { allow: 'POST', 'content-type': 'text/plain' });
+      res.end('method not allowed');
+      return;
+    }
+    const contentType = String(req.headers['content-type'] ?? '').split(';', 1)[0].trim().toLowerCase();
+    if (contentType !== 'application/json') {
+      res.writeHead(415, { 'content-type': 'text/plain' });
+      res.end('content-type must be application/json');
+      return;
+    }
+    const body = await readBody(req, IMPORT_BODY_LIMIT);
+    let payload;
+    try {
+      payload = JSON.parse(body);
+    } catch {
+      throw new RouteError(400, 'body is not JSON');
+    }
+    if (typeof payload?.data !== 'string' || payload.data.length === 0) throw new RouteError(400, 'data must be a base64 archive');
+    const buffer = Buffer.from(payload.data, 'base64');
+    const root = resolveRoot(ctx);
+    const result = await importArchive({ root, buffer });
+    const imported = result.items.filter((item) => item.status === 'imported').length;
+    respondJson(res, 200, { action: 'backup-import', imported, items: result.items });
+  } catch (error) {
+    const status = error instanceof RouteError ? error.status : 500;
+    try {
+      respondJson(res, status, { error: error instanceof Error ? error.message : String(error) });
+    } catch {
+      // Socket already gone.
+    }
+  }
+}
+
+/**
  * Answer one browser call.
  *
  * @param ctx - plugin context.
@@ -415,6 +544,10 @@ async function handleRoute(ctx, req, res) {
       respondJson(res, 200, { action, items });
       return;
     }
+    if (action === 'backup-export') {
+      await handleExport(ctx, res, payload);
+      return;
+    }
     if (action !== 'preview' && action !== 'delete') {
       throw new RouteError(400, 'action must be "preview", "delete", or "transcript"');
     }
@@ -506,6 +639,18 @@ export function apply(ctx) {
         },
       }),
     'session-cleanup: delete route',
+  );
+
+  ctx.effect(
+    () =>
+      ctx.webServer.register({
+        kind: 'exact',
+        path: IMPORT_ROUTE,
+        handler: (req, res) => {
+          void handleImport(ctx, req, res);
+        },
+      }),
+    'session-cleanup: import route',
   );
 
   ctx.inject(['tools'], (toolCtx) => {

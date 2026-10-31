@@ -21,6 +21,11 @@
   - 回收站位于会话存储根同级的 `.session-cleanup-trash/`，不在存储根里，所以不会被会话列表扫到
 - **刷新**：手动重新拉取会话列表并扫描「内存里还有、磁盘已无存储」的残留会话，这类行在面板里直接隐藏（即使开着「显示已归档」）
 - 会话 ID 完整显示（等宽字体、自动换行），不再截成 `session-`
+- **备份 / 恢复**：
+  - 单会话备份：每行「备份」直接下载
+  - 全会话备份：工具栏「备份」→ 导出全部会话
+  - 格式为 `.tar.gz`：`manifest.json` + 各会话目录（原样日志），可导入到其他 DSH
+  - 导入不覆盖已存在会话，会校验路径与日志头；导入后自动刷新列表
 - 侧栏会话「···」菜单里也有「删除会话」（与面板同一套回收站逻辑，不开面板也能用）
 - 附带 agent 工具 `session_cleanup`（`preview` / `delete`，`delete` 同样是移到回收站）
 
@@ -51,7 +56,7 @@ Harness 没有官方插件索引，插件广场只搜索**用户自己添加的�
 1. 推到 GitHub / Gitee（包目录就是仓库根目录）：
 
 ```bash
-git init && git add . && git commit -m "session-cleanup 1.4.0"
+git init && git add . && git commit -m "session-cleanup 1.5.0"
 git branch -M main
 git remote add origin git@github.com:<your-name>/session-cleanup.git
 git push -u origin main
@@ -85,12 +90,13 @@ git add plugin-market.json && git commit -m "add market index" && git push
 - 运行中的会话不能删，等这一轮结束
 - 会话被删除时若其 Agent 还在 Host 内存里，原生侧边栏的「已归档」仍能看到这条残留；插件面板已隐藏它，重启 `dsh web` 后彻底消失
 - 对话记录会先把整份日志读入 Host 再截断，超大会话有一定内存开销
+- 备份导出的运行中会话可能缺最后几条事件；导入文件上限 64 MB（页面），备份不含回收站和归档/置顶状态，导入后按 cwd 重新归组
 - 删除只作用于本地存储；额外的备份/同步不在范围内
 
 ## 开发
 
 ```bash
-node --test test/core.test.mjs test/transcript.test.mjs test/trash.test.mjs
+node --test test/core.test.mjs test/transcript.test.mjs test/trash.test.mjs test/backup.test.mjs
 ```
 
 覆盖：文件级删除校验、对话折叠/截断、回收站移动/恢复/冲突/过期/设置有 29 个用例。

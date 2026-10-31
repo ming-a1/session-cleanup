@@ -138,6 +138,9 @@ window.__ModuleLoader__.load({
       '.wsc-turn-muted{color:var(--dsw-alias-label-secondary)}',
       '.wsc-turn-toollist{margin-top:6px;color:var(--dsw-alias-label-secondary);font-size:11px;overflow-wrap:anywhere}',
       '.wsc-transcript-note{margin:0 0 10px;color:var(--dsw-alias-label-secondary);font-size:11px}',
+      '.wsc-backup-section{margin:0 0 20px}',
+      '.wsc-backup-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 10px}',
+      '.wsc-backup-file{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-secondary);font-size:12px}',
       '.wsc-trash-settings{display:flex;align-items:center;gap:8px;margin:0 0 12px;color:var(--dsw-alias-label-secondary);font-size:12.5px}',
       '.wsc-trash-settings input{width:64px;height:28px;padding:0 6px;border:.5px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:12px}',
       '.wsc-trash-row{display:flex;align-items:center;gap:10px;margin:0 0 8px;padding:10px;border:.5px solid var(--dsw-alias-border-l1);border-radius:12px}',
@@ -202,6 +205,27 @@ window.__ModuleLoader__.load({
       transcriptNoReply: '（无回复）',
       transcriptUnknown: '未知',
       trashOpen: '回收站',
+      backup: '备份',
+      backupTitle: '备份 / 恢复',
+      backupExportAll: '导出全部会话',
+      backupExportHint: '导出一个 .tar.gz，包含会话日志与元数据；运行中的会话可能缺少最后几条。',
+      backupExporting: '正在导出…',
+      backupExported: '已导出 {n} 个会话。',
+      backupImportHint: '选择由本插件导出的 .tar.gz 导入；已存在的会话不会覆盖。',
+      backupChooseFile: '选择备份文件',
+      backupImport: '导入',
+      backupImporting: '正在导入…',
+      backupImported: '已导入 {n} 个会话。',
+      backupResult: '成功 {ok} · 冲突 {conflict} · 无效 {invalid} · 失败 {failed}',
+      backupNoFile: '还没有选择文件。',
+      backupFileTooLarge: '备份文件过大（上限 64 MB）。',
+      backupStatusImported: '已导入',
+      backupStatusConflict: '已存在',
+      backupStatusInvalid: '无效',
+      backupStatusFailed: '失败',
+      backupDownloadFailed: '导出失败：{message}',
+      backupImportFailed: '导入失败：{message}',
+      backupRow: '备份',
       refresh: '刷新',
       refreshing: '刷新中…',
       refreshFailed: '刷新失败：{message}',
@@ -321,6 +345,27 @@ window.__ModuleLoader__.load({
       transcriptNoReply: '(no reply)',
       transcriptUnknown: 'Unknown',
       trashOpen: 'Recycle bin',
+      backup: 'Backup',
+      backupTitle: 'Backup / restore',
+      backupExportAll: 'Export all sessions',
+      backupExportHint: 'Downloads one .tar.gz with session logs and metadata; a running session may miss its last few events.',
+      backupExporting: 'Exporting…',
+      backupExported: 'Exported {n} sessions.',
+      backupImportHint: 'Pick a .tar.gz exported by this plugin; existing sessions are never overwritten.',
+      backupChooseFile: 'Choose backup file',
+      backupImport: 'Import',
+      backupImporting: 'Importing…',
+      backupImported: 'Imported {n} sessions.',
+      backupResult: '{ok} imported · {conflict} existing · {invalid} invalid · {failed} failed',
+      backupNoFile: 'No file chosen yet.',
+      backupFileTooLarge: 'The backup file is too large (64 MB limit).',
+      backupStatusImported: 'Imported',
+      backupStatusConflict: 'Exists',
+      backupStatusInvalid: 'Invalid',
+      backupStatusFailed: 'Failed',
+      backupDownloadFailed: 'Export failed: {message}',
+      backupImportFailed: 'Import failed: {message}',
+      backupRow: 'Backup',
       refresh: 'Refresh',
       refreshing: 'Refreshing…',
       refreshFailed: 'Refresh failed: {message}',
@@ -625,6 +670,64 @@ window.__ModuleLoader__.load({
       return body.item;
     }
 
+    /** Download one backup archive through the Host route. */
+    async function downloadBackup(sessionIds) {
+      const payload = sessionIds === undefined ? { action: 'backup-export' } : { action: 'backup-export', sessionIds };
+      const response = await fetch(DELETE_ROUTE, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        let message = 'HTTP ' + response.status;
+        try {
+          const body = await response.json();
+          if (body !== null && typeof body.error === 'string') message = body.error;
+        } catch {
+          // HTML error page.
+        }
+        throw new Error(message);
+      }
+      const disposition = response.headers.get('content-disposition') || '';
+      const match = /filename="([^"]+)"/.exec(disposition);
+      const filename = match !== null ? match[1] : 'dsh-sessions-backup.tar.gz';
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      return { filename, count: Number(response.headers.get('x-session-count') || '0') };
+    }
+
+    /** Upload one backup archive to the Host import route. */
+    async function uploadBackup(file) {
+      if (file.size > 64 * 1024 * 1024) throw new Error('backup file exceeds the 64 MB limit');
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let binary = '';
+      const chunk = 0x8000;
+      for (let index = 0; index < bytes.length; index += chunk) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(index, index + chunk));
+      }
+      const response = await fetch('/session-cleanup/import', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ data: btoa(binary) }),
+      });
+      let body = null;
+      try {
+        body = await response.json();
+      } catch {
+        body = null;
+      }
+      if (!response.ok) throw new Error(body !== null && typeof body.error === 'string' ? body.error : 'HTTP ' + response.status);
+      if (body === null || !Array.isArray(body.items)) throw new Error('unexpected import response');
+      return body;
+    }
+
     /** Call one recycle-bin action through the bundle's Host route. */
     async function callTrash(action, payload = {}) {
       const response = await fetch(DELETE_ROUTE, {
@@ -705,7 +808,7 @@ window.__ModuleLoader__.load({
       return h('span', { className: 'wsc-badge' }, dot ? h('span', { className: 'wsc-dot' }) : null, children);
     }
 
-    function SessionRow({ row, depth, childCount, expanded, archived, pinned, selected, open, t, onToggleSelection, onToggleExpand, onArchive, onRestore, onDelete, onView }) {
+    function SessionRow({ row, depth, childCount, expanded, archived, pinned, selected, open, t, onToggleSelection, onToggleExpand, onArchive, onRestore, onDelete, onView, onBackup }) {
       const display = row.displayTitle || row.title || '';
       const title = display !== '' && display !== String(row.id) ? display : t('unnamed');
       const badges = [];
@@ -757,6 +860,7 @@ window.__ModuleLoader__.load({
         h(
           'div',
           { className: 'wsc-row-actions' },
+          h('button', { type: 'button', className: 'wsc-btn wsc-btn-small', onClick: () => onBackup(row.id) }, t('backupRow')),
           h('button', { type: 'button', className: 'wsc-btn wsc-btn-small', onClick: () => onView(row.id) }, t('viewRecord')),
           archived
             ? h('button', { type: 'button', className: 'wsc-btn wsc-btn-small', onClick: () => onRestore(row.id) }, t('restore'))
@@ -930,6 +1034,186 @@ window.__ModuleLoader__.load({
                     );
                   }),
                   item !== null && item.truncated === true ? h('p', { className: 'wsc-transcript-note' }, t('transcriptTruncated', { n: item.total })) : null,
+                )
+              : null,
+          ),
+        ),
+      );
+    }
+
+    function BackupDialog({ t, onClose, onImported }) {
+      const dialogRef = useRef(null);
+      const backRef = useRef(null);
+      const closeRef = useRef(onClose);
+      closeRef.current = onClose;
+      const inputRef = useRef(null);
+      const [busy, setBusy] = useState(null);
+      const [file, setFile] = useState(null);
+      const [notice, setNotice] = useState(null);
+      const [result, setResult] = useState(null);
+
+      const messageOf = (failure) => (failure !== null && failure !== undefined && failure.message ? failure.message : String(failure));
+
+      useEffect(() => {
+        if (backRef.current !== null) backRef.current.focus();
+      }, []);
+
+      const handleKeyDown = (event) => {
+        if (event.key === 'Escape') {
+          event.stopPropagation();
+          if (busy === null) closeRef.current();
+          return;
+        }
+        if (event.key !== 'Tab') return;
+        const root = dialogRef.current;
+        if (root === null) return;
+        const nodes = root.querySelectorAll('button, input, select, a[href]');
+        const focusables = [];
+        for (let index = 0; index < nodes.length; index += 1) {
+          if (!nodes[index].disabled) focusables.push(nodes[index]);
+        }
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      };
+
+      const exportAll = async () => {
+        if (busy !== null) return;
+        setBusy('export');
+        setNotice(null);
+        try {
+          const outcome = await downloadBackup();
+          setNotice(t('backupExported', { n: outcome.count }));
+        } catch (failure) {
+          setNotice(t('backupDownloadFailed', { message: messageOf(failure) }));
+        } finally {
+          setBusy(null);
+        }
+      };
+
+      const importFile = async () => {
+        if (busy !== null || file === null) return;
+        if (file.size > 64 * 1024 * 1024) {
+          setNotice(t('backupFileTooLarge'));
+          return;
+        }
+        setBusy('import');
+        setNotice(null);
+        setResult(null);
+        try {
+          const body = await uploadBackup(file);
+          setResult(body);
+          const imported = body.items.filter((item) => item.status === 'imported').length;
+          if (imported > 0) onImported();
+          setNotice(t('backupImported', { n: imported }));
+        } catch (failure) {
+          setNotice(t('backupImportFailed', { message: messageOf(failure) }));
+        } finally {
+          setBusy(null);
+        }
+      };
+
+      const statusText = (status) => {
+        if (status === 'imported') return t('backupStatusImported');
+        if (status === 'conflict') return t('backupStatusConflict');
+        if (status === 'invalid') return t('backupStatusInvalid');
+        return t('backupStatusFailed');
+      };
+
+      const counts = { imported: 0, conflict: 0, invalid: 0, failed: 0 };
+      if (result !== null) {
+        for (const item of result.items) {
+          if (counts[item.status] !== undefined) counts[item.status] += 1;
+        }
+      }
+
+      return h(
+        'div',
+        {
+          className: 'wsc-overlay',
+          onMouseDown: (event) => {
+            if (event.target === event.currentTarget && busy === null) onClose();
+          },
+          onKeyDown: handleKeyDown,
+        },
+        h(
+          'div',
+          { className: 'wsc-transcript', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'wsc-backup-title', ref: dialogRef, tabIndex: -1 },
+          h(
+            'div',
+            { className: 'wsc-transcript-head' },
+            h('button', { type: 'button', className: 'wsc-back', ref: backRef, onClick: onClose }, '← ' + t('transcriptBack')),
+            h('div', { className: 'wsc-transcript-titles' }, h('h2', { id: 'wsc-backup-title' }, t('backupTitle'))),
+            h('button', { type: 'button', className: 'wsc-transcript-close', 'aria-label': t('close'), onClick: onClose }, '×'),
+          ),
+          h(
+            'div',
+            { className: 'wsc-transcript-body' },
+            h(
+              'div',
+              { className: 'wsc-backup-section' },
+              h('h3', { className: 'wsc-section-title' }, t('backupExportAll')),
+              h('p', { className: 'wsc-transcript-note' }, t('backupExportHint')),
+              h(
+                'div',
+                { className: 'wsc-backup-actions' },
+                h('button', { type: 'button', className: 'wsc-btn', disabled: busy !== null, onClick: () => void exportAll() }, busy === 'export' ? t('backupExporting') : t('backupExportAll')),
+              ),
+            ),
+            h(
+              'div',
+              { className: 'wsc-backup-section' },
+              h('h3', { className: 'wsc-section-title' }, t('backupImport')),
+              h('p', { className: 'wsc-transcript-note' }, t('backupImportHint')),
+              h('input', {
+                type: 'file',
+                accept: '.tar.gz,application/gzip,application/x-gzip',
+                style: { display: 'none' },
+                ref: inputRef,
+                onChange: (event) => {
+                  const picked = event.target.files !== null && event.target.files.length > 0 ? event.target.files[0] : null;
+                  setFile(picked);
+                  setResult(null);
+                  setNotice(null);
+                },
+              }),
+              h(
+                'div',
+                { className: 'wsc-backup-actions' },
+                h('button', { type: 'button', className: 'wsc-btn', disabled: busy !== null, onClick: () => inputRef.current?.click() }, t('backupChooseFile')),
+                h('span', { className: 'wsc-backup-file' }, file !== null ? file.name : t('backupNoFile')),
+                h('button', { type: 'button', className: 'wsc-btn', disabled: busy !== null || file === null, onClick: () => void importFile() }, busy === 'import' ? t('backupImporting') : t('backupImport')),
+              ),
+            ),
+            notice !== null ? h('p', { className: 'wsc-dialog-warn' }, notice) : null,
+            result !== null
+              ? h(
+                  React.Fragment,
+                  null,
+                  h('p', { className: 'wsc-summary' }, t('backupResult', counts)),
+                  result.items.filter((item) => item.status !== 'imported').length > 0
+                    ? h(
+                        'ul',
+                        { className: 'wsc-failures' },
+                        result.items
+                          .filter((item) => item.status !== 'imported')
+                          .map((item) =>
+                            h(
+                              'li',
+                              { key: item.id },
+                              h('div', { className: 'wsc-failure-id' }, String(item.id)),
+                              h('div', null, statusText(item.status) + (item.reason ? '：' + item.reason : '')),
+                            ),
+                          ),
+                      )
+                    : null,
                 )
               : null,
           ),
@@ -1515,6 +1799,7 @@ window.__ModuleLoader__.load({
       const [archiveRequest, setArchiveRequest] = useState(null);
       const [transcriptId, setTranscriptId] = useState(null);
       const [trashOpen, setTrashOpen] = useState(false);
+      const [backupOpen, setBackupOpen] = useState(false);
       const [refreshing, setRefreshing] = useState(false);
       const [orphans, setOrphans] = useState(() => new Set());
 
@@ -1537,6 +1822,18 @@ window.__ModuleLoader__.load({
       useEffect(() => {
         void refreshAll();
       }, [refreshAll]);
+
+      const backupSingle = useCallback(
+        async (id) => {
+          try {
+            const outcome = await downloadBackup([id]);
+            setNotice(t('backupExported', { n: outcome.count }));
+          } catch (failure) {
+            setNotice(t('backupDownloadFailed', { message: failure !== null && failure !== undefined && failure.message ? failure.message : String(failure) }));
+          }
+        },
+        [t],
+      );
       const [purgeIds, setPurgeIds] = useState(null);
       const [restoring, setRestoring] = useState(false);
       const [notice, setNotice] = useState(null);
@@ -1903,6 +2200,7 @@ window.__ModuleLoader__.load({
                 h('input', { type: 'checkbox', checked: showArchived, onChange: (event) => setShowArchived(event.target.checked) }),
                 t('showArchived'),
               ),
+              h('button', { type: 'button', className: 'wsc-btn', onClick: () => setBackupOpen(true) }, t('backup')),
               h('button', { type: 'button', className: 'wsc-btn wsc-btn-refresh', disabled: refreshing, onClick: () => void refreshAll() }, refreshing ? t('refreshing') : t('refresh')),
               h('button', { type: 'button', className: 'wsc-btn', onClick: () => setTrashOpen(true) }, t('trashOpen')),
               h('span', { className: 'wsc-spacer' }),
@@ -1954,6 +2252,7 @@ window.__ModuleLoader__.load({
                             onArchive: (id) => requestArchive([id]),
                             onRestore: (id) => restoreIds([id]),
                             onView: (id) => setTranscriptId(id),
+                            onBackup: (id) => void backupSingle(id),
                             onDelete: (id) => requestDeleteRow(id),
                           });
                         })
@@ -2000,6 +2299,15 @@ window.__ModuleLoader__.load({
         ),
         notice !== null ? h('div', { className: 'wsc-notice', role: 'status', 'aria-live': 'polite' }, notice) : null,
         transcriptId !== null ? h(TranscriptDialog, { id: transcriptId, t, onClose: () => setTranscriptId(null) }) : null,
+        backupOpen
+          ? h(BackupDialog, {
+              t,
+              onClose: () => setBackupOpen(false),
+              onImported: () => {
+                void refreshAll();
+              },
+            })
+          : null,
         trashOpen
           ? h(TrashDialog, {
               t,
