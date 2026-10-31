@@ -81,8 +81,8 @@ window.__ModuleLoader__.load({
       '.wsc-row-actions{display:flex;align-items:center;gap:6px;flex:none}',
       '.wsc-empty{margin:0;padding:32px 12px;text-align:center;color:var(--dsw-alias-label-secondary);font-size:13px}',
       '.wsc-footer{flex:none;display:flex;align-items:center;padding:10px clamp(24px,4vw,48px);border-top:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base)}',
-      '.wsc-footer-inner{display:flex;align-items:center;gap:8px;box-sizing:border-box;width:100%;max-width:880px;margin:0 auto}',
-      '.wsc-footer-info{margin-right:auto;color:var(--dsw-alias-label-secondary);font-size:12px}',
+      '.wsc-footer-inner{display:flex;flex-wrap:wrap;align-items:center;gap:8px;box-sizing:border-box;width:100%;max-width:880px;margin:0 auto}',
+      '.wsc-footer-info{margin-right:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-secondary);font-size:12px}',
       '.wsc-notice{position:fixed;left:50%;bottom:24px;z-index:70;transform:translateX(-50%);padding:8px 14px;border:.5px solid var(--dsw-alias-border-l2);border-radius:12px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font-size:13px}',
       '.wsc-overlay{position:fixed;inset:0;z-index:80;pointer-events:auto;display:flex;align-items:center;justify-content:center;padding:24px;background:color-mix(in srgb,var(--dsw-alias-label-primary) 42%,transparent)}',
       '.wsc-mi-wrap{position:relative}',
@@ -149,7 +149,7 @@ window.__ModuleLoader__.load({
       '.wsc-confirm-title{font-size:13px;font-weight:600;color:var(--dsw-alias-state-error-primary)}',
       '.wsc-confirm p{margin:4px 0 0;color:var(--dsw-alias-label-secondary);font-size:12px;overflow-wrap:anywhere}',
       '.wsc-page :focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}',
-      '@media (max-width:640px){.wsc-group-path{display:none}.wsc-content{padding:20px 16px 32px}.wsc-footer{padding:10px 16px}}',
+      '@media (max-width:640px){.wsc-group-path{display:none}.wsc-content{padding:20px 16px 32px}.wsc-footer{padding:8px 16px}.wsc-footer-info{flex:1 0 100%;margin:0 0 2px}.wsc-footer-inner{gap:6px}.wsc-footer-inner .wsc-btn{flex:none}}',
     ].join('');
 
     const zh = {
