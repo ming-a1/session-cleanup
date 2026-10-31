@@ -24,7 +24,7 @@
         "en": "Adds a sidebar panel that lists workspace sessions to archive, delete to a recycle bin, restore, and inspect conversation transcripts.",
         "zh": "在侧栏新增会话清理面板：按工作区列出会话，可归档、删除到回收站、恢复，并查看对话记录。"
       },
-      "icon": "https://raw.githubusercontent.com/ming-a1/session-cleanup/5d5ac61c5a7bd33f1568265e007e6d07da1b9af2/icon.svg",
+      "icon": "https://raw.githubusercontent.com/ming-a1/session-cleanup/9083814c2123f6ca2e44cc945cdb9a38e3cf96a9/icon.svg",
       "author": "ming-a1",
       "homepage": "https://github.com/ming-a1/session-cleanup",
       "repository": {
@@ -40,12 +40,12 @@
       },
       "versions": [
         {
-          "version": "1.5.1",
-          "publishTimestamp": 1793449184,
+          "version": "1.5.3",
+          "publishTimestamp": 1793450000,
           "source": {
             "type": "git",
             "url": "https://github.com/ming-a1/session-cleanup",
-            "commit": "5d5ac61c5a7bd33f1568265e007e6d07da1b9af2"
+            "commit": "9083814c2123f6ca2e44cc945cdb9a38e3cf96a9"
           },
           "engines": {}
         }
