@@ -68,6 +68,8 @@ window.__ModuleLoader__.load({
       '.wsc-row-selected .wsc-row-title-text{color:var(--dsw-alias-brand-primary)}',
       '.wsc-row-archived .wsc-row-title-text{color:var(--dsw-alias-label-secondary)}',
       '.wsc-check{flex:none;width:15px;height:15px;margin:0;accent-color:var(--dsw-alias-brand-primary);cursor:pointer}',
+      '.wsc-row-running .wsc-check{cursor:not-allowed;opacity:.4}',
+      '.wsc-row-running .wsc-row-title{color:var(--dsw-alias-label-secondary)}',
       '.wsc-row-body{display:flex;flex:1;flex-direction:column;gap:1px;min-width:0;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}',
       '.wsc-row-title{display:flex;align-items:center;gap:6px;min-width:0;font-size:13px}',
       '.wsc-row-caret{display:inline-flex;flex:none;color:var(--dsw-alias-label-secondary);transform:rotate(0deg);transition:transform .12s ease}',
@@ -226,6 +228,9 @@ window.__ModuleLoader__.load({
       backupDownloadFailed: '导出失败：{message}',
       backupImportFailed: '导入失败：{message}',
       backupRow: '备份',
+      runningLocked: '运行中，不能选择',
+      deleteRunningBlocked: '会话正在运行中，不可删除；等这一轮结束再试。',
+      backupSelected: '备份已选中（{n}）',
       backupCwdNote: '{n} 个会话的原工作目录不存在，已改写到 {path}。',
       refresh: '刷新',
       refreshing: '刷新中…',
@@ -373,6 +378,9 @@ window.__ModuleLoader__.load({
       backupDownloadFailed: 'Export failed: {message}',
       backupImportFailed: 'Import failed: {message}',
       backupRow: 'Backup',
+      runningLocked: 'Running; cannot be selected',
+      deleteRunningBlocked: 'This session is running and cannot be deleted; wait for the turn to finish.',
+      backupSelected: 'Back up selected ({n})',
       backupCwdNote: '{n} sessions pointed at a directory that does not exist here; rewritten to {path}.',
       refresh: 'Refresh',
       refreshing: 'Refreshing…',
@@ -626,7 +634,8 @@ window.__ModuleLoader__.load({
       const sessionState = useSessions((state) => state);
       const onSelect = () => {
         setMenuOpen(false);
-        purgeBus.open(collectSubtree(sessionState, sessionId, displayTitle));
+        const running = sessionState.byId[sessionId]?.running === true;
+        purgeBus.open(running ? { ids: [], labels: {} } : collectSubtree(sessionState, sessionId, displayTitle));
       };
       return h(
         'div',
@@ -822,7 +831,7 @@ window.__ModuleLoader__.load({
       return h('span', { className: 'wsc-badge' }, dot ? h('span', { className: 'wsc-dot' }) : null, children);
     }
 
-    function SessionRow({ row, depth, childCount, expanded, archived, pinned, selected, open, t, onToggleSelection, onToggleExpand, onArchive, onRestore, onDelete, onView, onBackup }) {
+    function SessionRow({ row, depth, childCount, expanded, archived, pinned, selected, running, open, t, onToggleSelection, onToggleExpand, onArchive, onRestore, onDelete, onView, onBackup }) {
       const display = row.displayTitle || row.title || '';
       const title = display !== '' && display !== String(row.id) ? display : t('unnamed');
       const badges = [];
@@ -836,13 +845,15 @@ window.__ModuleLoader__.load({
       return h(
         'div',
         {
-          className: 'wsc-row' + (selected ? ' wsc-row-selected' : '') + (archived ? ' wsc-row-archived' : ''),
+          className: 'wsc-row' + (selected ? ' wsc-row-selected' : '') + (archived ? ' wsc-row-archived' : '') + (running ? ' wsc-row-running' : ''),
           style: depth > 0 ? { paddingLeft: 12 + depth * 18 } : undefined,
         },
         h('input', {
           type: 'checkbox',
           className: 'wsc-check',
           checked: selected,
+          disabled: running,
+          title: running ? t('runningLocked') : undefined,
           onChange: () => onToggleSelection(row.id),
           'aria-label': title,
         }),
@@ -852,7 +863,10 @@ window.__ModuleLoader__.load({
             type: 'button',
             className: 'wsc-row-body',
             'aria-expanded': childCount > 0 ? expanded : undefined,
-            onClick: () => (childCount > 0 ? onToggleExpand(row.id) : onToggleSelection(row.id)),
+            onClick: () => {
+              if (childCount > 0) onToggleExpand(row.id);
+              else if (!running) onToggleSelection(row.id);
+            },
           },
           h(
             'span',
@@ -1129,6 +1143,7 @@ window.__ModuleLoader__.load({
           const rewritten = Number(body.rewritten || 0);
           const note = t('backupImported', { n: imported }) + (rewritten > 0 ? ' ' + t('backupCwdNote', { n: rewritten, path: body.targetCwd }) : '');
           setNotice(note);
+          if (inputRef.current !== null) inputRef.current.value = '';
         } catch (failure) {
           setNotice(t('backupImportFailed', { message: messageOf(failure) }));
         } finally {
@@ -1612,7 +1627,7 @@ window.__ModuleLoader__.load({
     function PurgeDialog({ ids, labels, t, onClose, onFinished }) {
       const dialogRef = useRef(null);
       const primaryRef = useRef(null);
-      const [phase, setPhase] = useState('checking');
+      const [phase, setPhase] = useState(ids.length === 0 ? 'blocked' : 'checking');
       const [previewItems, setPreviewItems] = useState([]);
       const [result, setResult] = useState(null);
       const [error, setError] = useState(null);
@@ -1630,11 +1645,15 @@ window.__ModuleLoader__.load({
       const totalBytes = deletable.reduce((sum, item) => sum + (item.bytes ?? 0), 0);
 
       useEffect(() => {
-        if (phase !== 'confirm' && phase !== 'error' && phase !== 'done') return;
+        if (phase !== 'confirm' && phase !== 'error' && phase !== 'done' && phase !== 'blocked') return;
         if (primaryRef.current !== null) primaryRef.current.focus();
       }, [phase]);
 
       const check = useCallback(async () => {
+        if (ids.length === 0) {
+          setPhase('blocked');
+          return;
+        }
         setPhase('checking');
         setError(null);
         setPreviewItems([]);
@@ -1650,8 +1669,9 @@ window.__ModuleLoader__.load({
       }, [ids]);
 
       useEffect(() => {
+        if (ids.length === 0) return;
         void check();
-      }, [check]);
+      }, [check, ids.length]);
 
       const handleKeyDown = (event) => {
         if (event.key === 'Escape') {
@@ -1708,7 +1728,16 @@ window.__ModuleLoader__.load({
       };
 
       const body = [];
-      if (phase === 'error') {
+      if (phase === 'blocked') {
+        body.push(h('p', { key: 'blocked', className: 'wsc-dialog-warn' }, t('deleteRunningBlocked')));
+        body.push(
+          h(
+            'div',
+            { key: 'blocked-actions', className: 'wsc-dialog-actions' },
+            h('button', { type: 'button', className: 'wsc-btn', ref: primaryRef, onClick: onClose }, t('close')),
+          ),
+        );
+      } else if (phase === 'error') {
         body.push(h('p', { key: 'error', className: 'wsc-dialog-warn' }, errorText(error)));
       } else if (phase === 'checking') {
         body.push(h('p', { key: 'checking' }, t('purgeChecking', { n: ids.length })));
@@ -2031,6 +2060,12 @@ window.__ModuleLoader__.load({
         return set;
       }, [filtered]);
 
+      const selectableIds = useMemo(() => {
+        const set = new Set();
+        for (const group of filtered) for (const row of group.rows) if (row.running !== true) set.add(row.id);
+        return set;
+      }, [filtered]);
+
       // Selecting a parent selects the whole subtree; collapsing only hides
       // rows, so hidden children stay selected.
       const descendants = useMemo(() => {
@@ -2053,12 +2088,12 @@ window.__ModuleLoader__.load({
           let changed = false;
           const next = new Set();
           previous.forEach((id) => {
-            if (filteredIds.has(id)) next.add(id);
+            if (selectableIds.has(id)) next.add(id);
             else changed = true;
           });
           return changed ? next : previous;
         });
-      }, [filteredIds]);
+      }, [selectableIds]);
 
       const toggleSession = useCallback(
         (id) => {
@@ -2068,12 +2103,12 @@ window.__ModuleLoader__.load({
             if (next.has(id)) {
               for (const member of list) next.delete(member);
             } else {
-              for (const member of list) next.add(member);
+              for (const member of list) if (selectableIds.has(member)) next.add(member);
             }
             return next;
           });
         },
-        [descendants],
+        [descendants, selectableIds],
       );
 
       const toggleExpanded = useCallback((id) => {
@@ -2090,11 +2125,19 @@ window.__ModuleLoader__.load({
       // never reaches up to its parent.
       const requestDeleteRow = useCallback(
         (id) => {
-          const subtree = [id, ...(descendants.get(id) ?? [])];
+          if (byId[id]?.running === true) {
+            setPurgeIds([]);
+            return;
+          }
+          const subtree = [id, ...(descendants.get(id) ?? [])].filter((member) => byId[member]?.running !== true);
+          if (subtree.length === 0) {
+            setPurgeIds([]);
+            return;
+          }
           const checked = subtree.filter((member) => selected.has(member));
           setPurgeIds(checked.length > 0 ? checked : subtree);
         },
-        [descendants, selected],
+        [descendants, selected, byId, t],
       );
 
       const setMany = useCallback((list, on) => {
@@ -2117,10 +2160,10 @@ window.__ModuleLoader__.load({
         });
       }, []);
 
-      const allSelected = filteredIds.size > 0 && Array.from(filteredIds).every((id) => selected.has(id));
+      const allSelected = selectableIds.size > 0 && Array.from(selectableIds).every((id) => selected.has(id));
 
       const toggleAllVisible = () => {
-        setMany(Array.from(filteredIds), !allSelected);
+        setMany(Array.from(selectableIds), !allSelected);
       };
 
       const requestArchive = useCallback(
@@ -2199,9 +2242,22 @@ window.__ModuleLoader__.load({
         return map;
       }, [ids, byId]);
 
-      const selectedIds = useMemo(() => Array.from(selected), [selected]);
+      const selectedIds = useMemo(
+        () => Array.from(selected).filter((id) => filteredIds.has(id) && byId[id]?.running !== true),
+        [selected, filteredIds, byId],
+      );
       const selectedArchived = selectedIds.filter((id) => archivedSet.has(id));
       const selectedActive = selectedIds.filter((id) => !archivedSet.has(id));
+
+      const backupSelected = async () => {
+        try {
+          const outcome = await downloadBackup([...selectedIds]);
+          setNotice(t('backupExported', { n: outcome.count }));
+        } catch (failure) {
+          setNotice(t('backupDownloadFailed', { message: failure !== null && failure !== undefined && failure.message ? failure.message : String(failure) }));
+        }
+      };
+
 
       const totalCount = ids.filter((id) => byId[id] && !byId[id].blank && !orphans.has(id)).length;
       const archivedCount = ids.filter((id) => archivedSet.has(id) && !orphans.has(id)).length;
@@ -2267,7 +2323,7 @@ window.__ModuleLoader__.load({
               ? h('p', { className: 'wsc-empty' }, loading ? t('loading') : groups.length === 0 ? t('empty') : t('noMatches'))
               : visible.map((group) => {
                   const open = !collapsed.has(group.key);
-                  const groupIds = group.ids;
+                  const groupIds = group.ids.filter((id) => byId[id]?.running !== true);
                   const groupAll = groupIds.length > 0 && groupIds.every((id) => selected.has(id));
                   return h(
                     'div',
@@ -2303,6 +2359,7 @@ window.__ModuleLoader__.load({
                             archived: archivedSet.has(row.id),
                             pinned: pinnedSet.has(row.id),
                             selected: selected.has(row.id),
+                            running: row.running === true,
                             open: retained,
                             t,
                             onToggleSelection: toggleSession,
@@ -2331,6 +2388,9 @@ window.__ModuleLoader__.load({
               : null,
             selectedIds.length > 0
               ? h('button', { type: 'button', className: 'wsc-btn', onClick: () => setSelected(new Set()) }, t('clearAll'))
+              : null,
+            selectedIds.length > 0
+              ? h('button', { type: 'button', className: 'wsc-btn', onClick: () => void backupSelected() }, t('backupSelected', { n: selectedIds.length }))
               : null,
             selectedArchived.length > 0
               ? h(

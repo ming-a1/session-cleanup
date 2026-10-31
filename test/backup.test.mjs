@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { zstdCompressSync, zstdDecompressSync } from 'node:zlib';
 import { test } from 'node:test';
 import { gzipSync } from 'node:zlib';
 
@@ -107,6 +108,38 @@ test('import rewrites a missing cwd to the target default directory', async () =
     const header = JSON.parse(text.split('\n')[0]);
     assert.equal(header.cwd, root);
     await assert.rejects(importArchive({ root, buffer: archive, targetCwd: 'relative/path' }), /existing absolute directory/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('import keeps later zstd frames when it rewrites a missing cwd', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'session-cleanup-backup-'));
+  try {
+    const id = 'session-move-zstd';
+    const missing = '/definitely/not/here/' + id;
+    const event = Buffer.from(JSON.stringify({ type: 'event', seq: 2 }) + '\n');
+    const first = zstdCompressSync(Buffer.from(headerLine(id, missing)));
+    const second = zstdCompressSync(event);
+    const archive = createArchive([
+      {
+        id,
+        project: '--tmp-move--',
+        title: '',
+        cwd: missing,
+        createdAt: 1,
+        files: { 'session.v4.jsonl.zstd': Buffer.concat([first, second]) },
+      },
+    ]);
+    const result = await importArchive({ root, buffer: archive, targetCwd: root });
+    assert.equal(result.items[0].status, 'imported');
+    const stored = await readFile(join(root, '--tmp-move--', encodeSegment(id), 'session.v4.jsonl.zstd'));
+    const magic = Buffer.from([0x28, 0xb5, 0x2f, 0xfd]);
+    const next = stored.indexOf(magic, 4);
+    assert.ok(next > 0);
+    const head = JSON.parse(zstdDecompressSync(stored.subarray(0, next)).toString('utf8').split('\n')[0]);
+    assert.equal(head.cwd, root);
+    assert.deepEqual(zstdDecompressSync(stored.subarray(next)), event);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

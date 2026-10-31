@@ -20,6 +20,7 @@ import {
   readSessionFiles,
 } from './lib/backup.js';
 import { deleteSession, locateSessionDir, normalizeSessionIds, previewSession } from './lib/cleanup.js';
+import { readSessionCwd } from './lib/cwd.js';
 import { buildTranscript } from './lib/transcript.js';
 import {
   listEntries,
@@ -441,13 +442,22 @@ async function handleImport(ctx, req, res) {
     }
     const result = await importArchive({ root, buffer, targetCwd });
     // A previously deleted session can still sit in the archived set; a fresh
-    // import of the same id must come back visible, not hidden.
+    // import of the same id must come back visible, not hidden. Imported rows
+    // also have no workspace record yet, so attach them where their cwd lands.
     for (const item of result.items) {
       if (item.status !== 'imported') continue;
       try {
         await ctx.workspaceRegistry.unarchiveSession(item.id);
       } catch {
         // Archiving state is best-effort.
+      }
+      try {
+        const located = await locateSessionDir(root, item.id);
+        const cwd = located.status === 'found' ? await readSessionCwd(located.dir) : undefined;
+        const workspace = cwd === undefined ? undefined : await ctx.workspaceRegistry.resolveByPath(cwd);
+        if (workspace !== undefined) await workspace.attachSession(item.id);
+      } catch {
+        // An ungrouped import is still listed under "all sessions".
       }
     }
     const imported = result.items.filter((item) => item.status === 'imported').length;
@@ -553,6 +563,14 @@ async function handleRoute(ctx, req, res) {
             } catch {
               // Restoring visibility is best-effort.
             }
+            try {
+              const located = await locateSessionDir(root, meta.id);
+              const cwd = located.status === 'found' ? await readSessionCwd(located.dir) : undefined;
+              const workspace = cwd === undefined ? undefined : await ctx.workspaceRegistry.resolveByPath(cwd);
+              if (workspace !== undefined) await workspace.attachSession(meta.id);
+            } catch {
+              // Membership is re-derived on the next registry refresh.
+            }
             items.push({ entryId, status: 'restored', id: meta.id });
           }
         } catch (error) {
@@ -567,7 +585,7 @@ async function handleRoute(ctx, req, res) {
       return;
     }
     if (action !== 'preview' && action !== 'delete') {
-      throw new RouteError(400, 'action must be "preview", "delete", or "transcript"');
+      throw new RouteError(400, 'unknown action');
     }
     const normalized = normalizeSessionIds(payload?.sessionIds);
     if (normalized.error !== undefined) throw new RouteError(400, normalized.error);
