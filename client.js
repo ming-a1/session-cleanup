@@ -141,7 +141,7 @@ window.__ModuleLoader__.load({
       '.wsc-backup-section{margin:0 0 20px}',
       '.wsc-backup-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 10px}',
       '.wsc-backup-file{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-secondary);font-size:12px}',
-      '.wsc-trash-settings{display:flex;align-items:center;gap:8px;margin:0 0 12px;color:var(--dsw-alias-label-secondary);font-size:12.5px}',
+      '.wsc-trash-settings{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 12px;color:var(--dsw-alias-label-secondary);font-size:12.5px}',
       '.wsc-trash-settings input{width:64px;height:28px;padding:0 6px;border:.5px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:12px}',
       '.wsc-trash-row{display:flex;align-items:center;gap:10px;margin:0 0 8px;padding:10px;border:.5px solid var(--dsw-alias-border-l1);border-radius:12px}',
       '.wsc-trash-main{flex:1;min-width:0}',
@@ -249,6 +249,12 @@ window.__ModuleLoader__.load({
       trashPurged: '已永久删除 {n} 条记录。',
       trashFailed: '操作失败：{message}',
       trashSize: '大小',
+      trashEmptyAll: '清空回收站（{n}）',
+      trashEmptyConfirmTitle: '清空回收站？',
+      trashEmptyConfirmBody: '回收站里的 {n} 条记录将被永久删除，无法恢复。',
+      trashEmptyConfirm: '确认清空',
+      trashEmptied: '已清空回收站（{n} 条）。',
+      trashPartial: '已删除 {ok} 条，{failed} 条失败。',
       transcriptUser: '我',
       transcriptAssistant: '助手',
       archiveConfirmTitle: '归档会话',
@@ -390,6 +396,12 @@ window.__ModuleLoader__.load({
       trashPurged: 'Permanently deleted {n} entries.',
       trashFailed: 'Failed: {message}',
       trashSize: 'Size',
+      trashEmptyAll: 'Empty the bin ({n})',
+      trashEmptyConfirmTitle: 'Empty the recycle bin?',
+      trashEmptyConfirmBody: 'All {n} entries will be deleted permanently.',
+      trashEmptyConfirm: 'Empty it',
+      trashEmptied: 'Emptied the recycle bin ({n} entries).',
+      trashPartial: 'Deleted {ok} entries; {failed} failed.',
       transcriptUser: 'You',
       transcriptAssistant: 'Assistant',
       archiveConfirmTitle: 'Archive sessions',
@@ -1233,6 +1245,7 @@ window.__ModuleLoader__.load({
       const [retentionInput, setRetentionInput] = useState('7');
       const [error, setError] = useState(null);
       const [pending, setPending] = useState(null);
+      const [confirmEmpty, setConfirmEmpty] = useState(false);
       const [busy, setBusy] = useState(false);
       const [notice, setNotice] = useState(null);
       const closeRef = useRef(onClose);
@@ -1321,6 +1334,27 @@ window.__ModuleLoader__.load({
         }
       };
 
+      const purgeAll = async () => {
+        if (busy) return;
+        const targets = items.map((entry) => entry.entryId);
+        if (targets.length === 0) return;
+        setBusy(true);
+        setNotice(null);
+        try {
+          const body = await callTrash('trash-purge', { entryIds: targets });
+          const purged = body.items.filter((item) => item.status === 'purged').length;
+          const failed = body.items.length - purged;
+          setConfirmEmpty(false);
+          await load();
+          setNotice(failed > 0 ? t('trashPartial', { ok: purged, failed }) : t('trashEmptied', { n: purged }));
+          if (typeof onChanged === 'function') onChanged();
+        } catch (failure) {
+          setNotice(t('trashFailed', { message: messageOf(failure) }));
+        } finally {
+          setBusy(false);
+        }
+      };
+
       const saveRetention = async () => {
         if (busy) return;
         setBusy(true);
@@ -1374,11 +1408,31 @@ window.__ModuleLoader__.load({
                 onChange: (event) => setRetentionInput(event.target.value),
               }),
               h('button', { type: 'button', className: 'wsc-btn wsc-btn-small', disabled: busy, onClick: saveRetention }, t('trashSave')),
+              h('span', { className: 'wsc-spacer' }),
+              h(
+                'button',
+                { type: 'button', className: 'wsc-btn wsc-btn-small wsc-btn-danger', disabled: busy || items.length === 0, onClick: () => setConfirmEmpty(true) },
+                t('trashEmptyAll', { n: items.length }),
+              ),
             ),
             notice !== null ? h('p', { className: 'wsc-transcript-note' }, notice) : null,
             phase === 'loading' ? h('p', null, t('trashLoading')) : null,
             phase === 'error' ? h('p', { className: 'wsc-dialog-warn' }, t('trashError', { message: messageOf(error) })) : null,
             phase === 'ready' && items.length === 0 ? h('p', { className: 'wsc-empty' }, t('trashEmpty')) : null,
+            confirmEmpty
+              ? h(
+                  'div',
+                  { className: 'wsc-confirm' },
+                  h('div', { className: 'wsc-confirm-title' }, t('trashEmptyConfirmTitle')),
+                  h('p', null, t('trashEmptyConfirmBody', { n: items.length })),
+                  h(
+                    'div',
+                    { className: 'wsc-dialog-actions' },
+                    h('button', { type: 'button', className: 'wsc-btn', disabled: busy, onClick: () => setConfirmEmpty(false) }, t('trashCancel')),
+                    h('button', { type: 'button', className: 'wsc-btn wsc-btn-danger', disabled: busy, onClick: () => void purgeAll() }, t('trashEmptyConfirm')),
+                  ),
+                )
+              : null,
             pending !== null
               ? h(
                   'div',

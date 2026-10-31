@@ -440,6 +440,16 @@ async function handleImport(ctx, req, res) {
       targetCwd = undefined;
     }
     const result = await importArchive({ root, buffer, targetCwd });
+    // A previously deleted session can still sit in the archived set; a fresh
+    // import of the same id must come back visible, not hidden.
+    for (const item of result.items) {
+      if (item.status !== 'imported') continue;
+      try {
+        await ctx.workspaceRegistry.unarchiveSession(item.id);
+      } catch {
+        // Archiving state is best-effort.
+      }
+    }
     const imported = result.items.filter((item) => item.status === 'imported').length;
     const rewritten = result.items.filter((item) => item.cwdRewritten === true).length;
     respondJson(res, 200, { action: 'backup-import', imported, rewritten, targetCwd: targetCwd ?? null, items: result.items });
