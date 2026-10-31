@@ -226,6 +226,7 @@ window.__ModuleLoader__.load({
       backupDownloadFailed: '导出失败：{message}',
       backupImportFailed: '导入失败：{message}',
       backupRow: '备份',
+      backupCwdNote: '{n} 个会话的原工作目录不存在，已改写到 {path}。',
       refresh: '刷新',
       refreshing: '刷新中…',
       refreshFailed: '刷新失败：{message}',
@@ -366,6 +367,7 @@ window.__ModuleLoader__.load({
       backupDownloadFailed: 'Export failed: {message}',
       backupImportFailed: 'Import failed: {message}',
       backupRow: 'Backup',
+      backupCwdNote: '{n} sessions pointed at a directory that does not exist here; rewritten to {path}.',
       refresh: 'Refresh',
       refreshing: 'Refreshing…',
       refreshFailed: 'Refresh failed: {message}',
@@ -1112,7 +1114,9 @@ window.__ModuleLoader__.load({
           setResult(body);
           const imported = body.items.filter((item) => item.status === 'imported').length;
           if (imported > 0) onImported();
-          setNotice(t('backupImported', { n: imported }));
+          const rewritten = Number(body.rewritten || 0);
+          const note = t('backupImported', { n: imported }) + (rewritten > 0 ? ' ' + t('backupCwdNote', { n: rewritten, path: body.targetCwd }) : '');
+          setNotice(note);
         } catch (failure) {
           setNotice(t('backupImportFailed', { message: messageOf(failure) }));
         } finally {

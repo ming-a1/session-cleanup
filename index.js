@@ -432,9 +432,17 @@ async function handleImport(ctx, req, res) {
     if (typeof payload?.data !== 'string' || payload.data.length === 0) throw new RouteError(400, 'data must be a base64 archive');
     const buffer = Buffer.from(payload.data, 'base64');
     const root = resolveRoot(ctx);
-    const result = await importArchive({ root, buffer });
+    let targetCwd;
+    try {
+      const candidate = ctx.workingDirectory?.defaultDirectory;
+      if (typeof candidate === 'string' && candidate.length > 0) targetCwd = candidate;
+    } catch {
+      targetCwd = undefined;
+    }
+    const result = await importArchive({ root, buffer, targetCwd });
     const imported = result.items.filter((item) => item.status === 'imported').length;
-    respondJson(res, 200, { action: 'backup-import', imported, items: result.items });
+    const rewritten = result.items.filter((item) => item.cwdRewritten === true).length;
+    respondJson(res, 200, { action: 'backup-import', imported, rewritten, targetCwd: targetCwd ?? null, items: result.items });
   } catch (error) {
     const status = error instanceof RouteError ? error.status : 500;
     try {

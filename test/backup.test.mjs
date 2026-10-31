@@ -85,6 +85,33 @@ test('import writes the session and refuses an existing id', async () => {
   }
 });
 
+test('import rewrites a missing cwd to the target default directory', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'session-cleanup-backup-'));
+  try {
+    const id = 'session-move-one';
+    const missing = '/definitely/not/here/' + id;
+    const archive = createArchive([
+      {
+        id,
+        project: '--tmp-move--',
+        title: '',
+        cwd: missing,
+        createdAt: 1,
+        files: { 'session.v4.jsonl': Buffer.from(headerLine(id, missing)) },
+      },
+    ]);
+    const result = await importArchive({ root, buffer: archive, targetCwd: root });
+    assert.equal(result.items[0].status, 'imported');
+    assert.equal(result.items[0].cwdRewritten, true);
+    const text = await readFile(join(root, '--tmp-move--', encodeSegment(id), 'session.v4.jsonl'), 'utf8');
+    const header = JSON.parse(text.split('\n')[0]);
+    assert.equal(header.cwd, root);
+    await assert.rejects(importArchive({ root, buffer: archive, targetCwd: 'relative/path' }), /existing absolute directory/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('import rejects a mismatched log header', async () => {
   const root = await mkdtemp(join(tmpdir(), 'session-cleanup-backup-'));
   try {
