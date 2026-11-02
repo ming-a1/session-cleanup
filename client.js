@@ -710,7 +710,15 @@ window.__ModuleLoader__.load({
       }
       const disposition = response.headers.get('content-disposition') || '';
       const match = /filename="([^"]+)"/.exec(disposition);
-      const filename = match !== null ? match[1] : 'dsh-sessions-backup.tar.gz';
+      let filename = match !== null ? match[1] : 'dsh-sessions-backup.tar.gz';
+      const encodedName = response.headers.get('x-backup-name');
+      if (encodedName !== null && encodedName.length > 0) {
+        try {
+          filename = decodeURIComponent(encodedName);
+        } catch {
+          // Keep the ASCII fallback when the header is malformed.
+        }
+      }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');

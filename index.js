@@ -367,7 +367,29 @@ async function buildBackup(ctx, root, ids) {
     });
   }
   if (sessions.length === 0) throw new RouteError(404, 'no stored sessions to export');
-  return { archive: createArchive(sessions), count: sessions.length };
+  return { archive: createArchive(sessions), count: sessions.length, title: sessions[0].title };
+}
+
+/** Strip characters that break a download filename. */
+function sanitizeFileBase(value) {
+  const cleaned = String(value ?? '')
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[. ]+$/g, '');
+  return cleaned.slice(0, 80) || '会话备份';
+}
+
+/**
+ * Name a backup after what it contains.
+ *
+ * @param count - number of exported sessions.
+ * @param title - first session's title, when known.
+ * @returns the file base name without extension.
+ */
+function backupFileBase(count, title) {
+  const base = sanitizeFileBase(title);
+  return count === 1 ? base : `${base} 等${count}个会话`;
 }
 
 /**
@@ -386,13 +408,15 @@ async function handleExport(ctx, res, payload) {
     if (normalized.error !== undefined) throw new RouteError(400, normalized.error);
     ids = normalized.ids;
   }
-  const { archive, count } = await buildBackup(ctx, root, ids);
+  const { archive, count, title } = await buildBackup(ctx, root, ids);
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+$/, '').replace('T', '-');
+  const base = backupFileBase(count, title);
   res.writeHead(200, {
     'content-type': 'application/gzip',
     'content-disposition': `attachment; filename="dsh-sessions-${stamp}.tar.gz"`,
     'content-length': String(archive.length),
     'x-session-count': String(count),
+    'x-backup-name': encodeURIComponent(`${base}.tar.gz`),
   });
   res.end(archive);
 }
