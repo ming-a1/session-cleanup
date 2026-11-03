@@ -80,7 +80,11 @@ window.__ModuleLoader__.load({
       '.wsc-row-meta-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
       '.wsc-badge{display:inline-flex;align-items:center;gap:4px;flex:none;height:17px;padding:0 6px;border:.5px solid var(--dsw-alias-border-l2);border-radius:999px;color:var(--dsw-alias-label-secondary);font-size:11px;line-height:1}',
       '.wsc-dot{flex:none;width:6px;height:6px;border-radius:50%;background:var(--dsw-alias-state-success-primary)}',
-      '.wsc-row-actions{display:flex;align-items:center;gap:6px;flex:none}',
+      '.wsc-row-actions{position:relative;display:flex;align-items:center;gap:6px;flex:none}',
+      '.wsc-row-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:40;display:flex;flex-direction:column;gap:2px;min-width:140px;padding:4px;border:.5px solid var(--dsw-alias-border-l2);border-radius:12px;background:var(--dsw-alias-bg-layer-1);box-shadow:0 10px 28px color-mix(in srgb,var(--dsw-alias-label-primary) 20%,transparent)}',
+      '.wsc-row-menu-item{display:flex;align-items:center;gap:6px;width:100%;height:32px;padding:0 10px;border:0;border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;text-align:left;cursor:pointer;white-space:nowrap}',
+      '.wsc-row-menu-item:hover{background:var(--dsw-alias-bg-layer-2)}',
+      '.wsc-row-menu-danger{color:var(--dsw-alias-state-error-primary)}',
       '.wsc-empty{margin:0;padding:32px 12px;text-align:center;color:var(--dsw-alias-label-secondary);font-size:13px}',
       '.wsc-footer{flex:none;display:flex;align-items:center;padding:10px clamp(24px,4vw,48px);border-top:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base)}',
       '.wsc-footer-inner{display:flex;flex-wrap:wrap;align-items:center;gap:8px;box-sizing:border-box;width:100%;max-width:880px;margin:0 auto}',
@@ -187,6 +191,7 @@ window.__ModuleLoader__.load({
       restore: '恢复',
       deletePermanently: '删除',
       menuDelete: '删除会话',
+      moreActions: '更多',
       viewRecord: '查看',
       transcriptTitle: '对话记录',
       transcriptLoading: '正在读取对话…',
@@ -337,6 +342,7 @@ window.__ModuleLoader__.load({
       restore: 'Restore',
       deletePermanently: 'Delete',
       menuDelete: 'Delete session',
+      moreActions: 'More',
       viewRecord: 'View',
       transcriptTitle: 'Conversation',
       transcriptLoading: 'Loading conversation…',
@@ -835,7 +841,38 @@ window.__ModuleLoader__.load({
       return h('span', { className: 'wsc-badge' }, dot ? h('span', { className: 'wsc-dot' }) : null, children);
     }
 
+    /** Narrow-viewport flag shared by responsive row controls. */
+    function useIsMobile() {
+      const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches);
+      useEffect(() => {
+        const media = window.matchMedia('(max-width: 640px)');
+        const update = () => setMobile(media.matches);
+        media.addEventListener('change', update);
+        return () => media.removeEventListener('change', update);
+      }, []);
+      return mobile;
+    }
+
     function SessionRow({ row, depth, childCount, expanded, archived, pinned, selected, running, open, t, onToggleSelection, onToggleExpand, onArchive, onRestore, onDelete, onView, onBackup }) {
+      const isMobile = useIsMobile();
+      const [menuOpen, setMenuOpen] = useState(false);
+      const menuRef = useRef(null);
+
+      useEffect(() => {
+        if (!menuOpen) return undefined;
+        const onPointerDown = (event) => {
+          if (menuRef.current !== null && !menuRef.current.contains(event.target)) setMenuOpen(false);
+        };
+        const onKeyDown = (event) => {
+          if (event.key === 'Escape') setMenuOpen(false);
+        };
+        document.addEventListener('mousedown', onPointerDown);
+        document.addEventListener('keydown', onKeyDown);
+        return () => {
+          document.removeEventListener('mousedown', onPointerDown);
+          document.removeEventListener('keydown', onKeyDown);
+        };
+      }, [menuOpen]);
       const display = row.displayTitle || row.title || '';
       const title = display !== '' && display !== String(row.id) ? display : t('unnamed');
       const badges = [];
@@ -891,18 +928,47 @@ window.__ModuleLoader__.load({
         ),
         h(
           'div',
-          { className: 'wsc-row-actions' },
-          h('button', { type: 'button', className: 'wsc-btn wsc-btn-small', onClick: () => onBackup(row.id) }, t('backupRow')),
-          h('button', { type: 'button', className: 'wsc-btn wsc-btn-small', onClick: () => onView(row.id) }, t('viewRecord')),
-          archived
-            ? h('button', { type: 'button', className: 'wsc-btn wsc-btn-small', onClick: () => onRestore(row.id) }, t('restore'))
-            : h('button', { type: 'button', className: 'wsc-btn wsc-btn-small', onClick: () => onArchive(row.id) }, t('archive')),
-          h(
-            'button',
-            { type: 'button', className: 'wsc-btn wsc-btn-small wsc-btn-danger', onClick: () => onDelete(row.id) },
-            h(TrashIcon),
-            t('deletePermanently'),
-          ),
+          { className: 'wsc-row-actions', ref: isMobile ? menuRef : undefined },
+          isMobile
+            ? h(
+                React.Fragment,
+                null,
+                h(
+                  'button',
+                  { type: 'button', className: 'wsc-btn wsc-btn-small', 'aria-haspopup': 'menu', 'aria-expanded': menuOpen, onClick: () => setMenuOpen((previous) => !previous) },
+                  t('moreActions'),
+                ),
+                menuOpen
+                  ? h(
+                      'div',
+                      { className: 'wsc-row-menu', role: 'menu', 'aria-label': t('moreActions') },
+                      h('button', { type: 'button', role: 'menuitem', className: 'wsc-row-menu-item', onClick: () => { setMenuOpen(false); onBackup(row.id); } }, t('backupRow')),
+                      h('button', { type: 'button', role: 'menuitem', className: 'wsc-row-menu-item', onClick: () => { setMenuOpen(false); onView(row.id); } }, t('viewRecord')),
+                      archived
+                        ? h('button', { type: 'button', role: 'menuitem', className: 'wsc-row-menu-item', onClick: () => { setMenuOpen(false); onRestore(row.id); } }, t('restore'))
+                        : h('button', { type: 'button', role: 'menuitem', className: 'wsc-row-menu-item', onClick: () => { setMenuOpen(false); onArchive(row.id); } }, t('archive')),
+                      h(
+                        'button',
+                        { type: 'button', role: 'menuitem', className: 'wsc-row-menu-item wsc-row-menu-danger', onClick: () => { setMenuOpen(false); onDelete(row.id); } },
+                        h(TrashIcon),
+                        t('deletePermanently'),
+                      ),
+                    )
+                  : null,
+              )
+            : [
+                h('button', { key: 'backup', type: 'button', className: 'wsc-btn wsc-btn-small', onClick: () => onBackup(row.id) }, t('backupRow')),
+                h('button', { key: 'view', type: 'button', className: 'wsc-btn wsc-btn-small', onClick: () => onView(row.id) }, t('viewRecord')),
+                archived
+                  ? h('button', { key: 'restore', type: 'button', className: 'wsc-btn wsc-btn-small', onClick: () => onRestore(row.id) }, t('restore'))
+                  : h('button', { key: 'archive', type: 'button', className: 'wsc-btn wsc-btn-small', onClick: () => onArchive(row.id) }, t('archive')),
+                h(
+                  'button',
+                  { key: 'delete', type: 'button', className: 'wsc-btn wsc-btn-small wsc-btn-danger', onClick: () => onDelete(row.id) },
+                  h(TrashIcon),
+                  t('deletePermanently'),
+                ),
+              ],
         ),
       );
     }
