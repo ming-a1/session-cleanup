@@ -1981,17 +1981,6 @@ window.__ModuleLoader__.load({
         void refreshAll();
       }, [refreshAll]);
 
-      const backupSingle = useCallback(
-        async (id) => {
-          try {
-            const outcome = await downloadBackup([id]);
-            setNotice(t('backupExported', { n: outcome.count }));
-          } catch (failure) {
-            setNotice(t('backupDownloadFailed', { message: failure !== null && failure !== undefined && failure.message ? failure.message : String(failure) }));
-          }
-        },
-        [t],
-      );
       const [purgeIds, setPurgeIds] = useState(null);
       const [restoring, setRestoring] = useState(false);
       const [notice, setNotice] = useState(null);
@@ -2153,6 +2142,29 @@ window.__ModuleLoader__.load({
         }
         return map;
       }, [filtered]);
+
+      // A backup follows the same ownership as deletion: the row's session plus
+      // every subagent beneath it, even when search or archiving hides them.
+      const backupSingle = useCallback(
+        async (id) => {
+          const family = [];
+          const walk = (current) => {
+            if (family.includes(current)) return;
+            family.push(current);
+            for (const group of groups) {
+              for (const child of group.children.get(current) ?? []) walk(child.id);
+            }
+          };
+          walk(id);
+          try {
+            const outcome = await downloadBackup(family);
+            setNotice(t('backupExported', { n: outcome.count }));
+          } catch (failure) {
+            setNotice(t('backupDownloadFailed', { message: failure !== null && failure !== undefined && failure.message ? failure.message : String(failure) }));
+          }
+        },
+        [groups, t],
+      );
 
       useEffect(() => {
         setSelected((previous) => {
