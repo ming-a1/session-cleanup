@@ -239,6 +239,8 @@ window.__ModuleLoader__.load({
       backupSelected: '备份已选中（{n}）',
       backupStarted: '已开始导出备份…',
       backupTargetWorkspace: '导入到工作区',
+      backupAttachmentsRestored: '已恢复 {n} 个附件',
+      backupAttachmentsMissing: '有 {n} 个附件缺失，相关会话可能无法继续对话',
       backupAutoWorkspace: '自动（按会话原目录）',
       backupCwdNote: '{n} 个会话的原工作目录不存在，已改写到 {path}。',
       refresh: '刷新',
@@ -391,6 +393,8 @@ window.__ModuleLoader__.load({
       backupSelected: 'Back up selected ({n})',
       backupStarted: 'Backup download started…',
       backupTargetWorkspace: 'Import into workspace',
+      backupAttachmentsRestored: 'Restored {n} attachments',
+      backupAttachmentsMissing: '{n} attachments are missing; affected sessions may not continue',
       backupAutoWorkspace: 'Automatic (each session\'s own folder)',
       backupCwdNote: '{n} sessions pointed at a directory that does not exist here; rewritten to {path}.',
       refresh: 'Refresh',
@@ -1210,7 +1214,11 @@ window.__ModuleLoader__.load({
           const imported = body.items.filter((item) => item.status === 'imported').length;
           if (imported > 0) onImported();
           const rewritten = Number(body.rewritten || 0);
-          const note = t('backupImported', { n: imported }) + (rewritten > 0 ? ' ' + t('backupCwdNote', { n: rewritten, path: body.targetCwd }) : '');
+          const attached = Number(body.attachments !== undefined && body.attachments !== null ? body.attachments.stored : 0);
+          let note = t('backupImported', { n: imported }) + (rewritten > 0 ? ' ' + t('backupCwdNote', { n: rewritten, path: body.targetCwd }) : '');
+          if (attached > 0) note += ' ' + t('backupAttachmentsRestored', { n: attached });
+          const missingAttachments = Number(body.attachments !== undefined && body.attachments !== null ? body.attachments.missing : 0);
+          if (missingAttachments > 0) note += ' ' + t('backupAttachmentsMissing', { n: missingAttachments });
           setNotice(note);
           if (inputRef.current !== null) inputRef.current.value = '';
         } catch (failure) {

@@ -12,9 +12,10 @@
  * anything (see `lib/cleanup.js`).
  */
 import { basename, dirname, resolve as resolvePath } from 'node:path';
-import { realpath } from 'node:fs/promises';
+import { readFile, realpath } from 'node:fs/promises';
 
 import {
+  collectAttachmentRefs,
   createArchive,
   importArchive,
   listStoredSessions,
@@ -331,6 +332,16 @@ function normalizeEntryIds(value) {
 }
 
 /**
+ * Attachment object store that sits beside the session persistence root.
+ *
+ * @param root - session persistence root.
+ * @returns the content-addressed object directory.
+ */
+function attachmentsRootOf(root) {
+  return join(dirname(root), 'attachments', 'v1', 'objects');
+}
+
+/**
  * Gather stored sessions into an archive.
  *
  * @param ctx - plugin context.
@@ -372,7 +383,25 @@ async function buildBackup(ctx, root, ids) {
   );
   const sessions = collected.filter((session) => session !== undefined);
   if (sessions.length === 0) throw new RouteError(404, 'no stored sessions to export');
-  return { archive: await createArchive(sessions), count: sessions.length, title: sessions[0].title };
+  // Attachments are content-addressed blobs outside the session directories;
+  // pack every one these sessions reference so the backup stays usable.
+  const storeRoot = attachmentsRootOf(root);
+  const attachments = {};
+  const missing = [];
+  for (const hash of collectAttachmentRefs(sessions)) {
+    try {
+      attachments[hash] = await readFile(join(storeRoot, hash.slice(0, 2), hash));
+    } catch {
+      missing.push(hash);
+    }
+  }
+  return {
+    archive: await createArchive(sessions, attachments, missing),
+    count: sessions.length,
+    title: sessions[0].title,
+    attachments: Object.keys(attachments).length,
+    missingAttachments: missing.length,
+  };
 }
 
 /** Strip characters that break a download filename. */
@@ -413,7 +442,7 @@ async function handleExport(ctx, res, payload) {
     if (normalized.error !== undefined) throw new RouteError(400, normalized.error);
     ids = normalized.ids;
   }
-  const { archive, count, title } = await buildBackup(ctx, root, ids);
+  const { archive, count, title, missingAttachments } = await buildBackup(ctx, root, ids);
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+$/, '').replace('T', '-');
   const base = backupFileBase(count, title);
   res.writeHead(200, {
@@ -422,6 +451,7 @@ async function handleExport(ctx, res, payload) {
     'content-length': String(archive.length),
     'x-session-count': String(count),
     'x-backup-name': encodeURIComponent(`${base}.tar.gz`),
+    'x-attachment-missing': String(missingAttachments),
   });
   res.end(archive);
 }
@@ -530,7 +560,7 @@ async function handleImport(ctx, req, res) {
         targetCwd = undefined;
       }
     }
-    const result = await importArchive({ root, buffer, targetCwd, forceCwd });
+    const result = await importArchive({ root, buffer, targetCwd, forceCwd, attachmentsRoot: attachmentsRootOf(root) });
     // A previously deleted session can still sit in the archived set; a fresh
     // import of the same id must come back visible, not hidden. Imported rows
     // also have no workspace record yet, so attach them where their cwd lands.
@@ -556,7 +586,7 @@ async function handleImport(ctx, req, res) {
     }
     const imported = result.items.filter((item) => item.status === 'imported').length;
     const rewritten = result.items.filter((item) => item.cwdRewritten === true).length;
-    respondJson(res, 200, { action: 'backup-import', imported, rewritten, targetCwd: targetCwd ?? null, items: result.items });
+    respondJson(res, 200, { action: 'backup-import', imported, rewritten, targetCwd: targetCwd ?? null, attachments: result.attachments, items: result.items });
   } catch (error) {
     const status = error instanceof RouteError ? error.status : 500;
     try {

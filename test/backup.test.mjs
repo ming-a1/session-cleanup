@@ -15,6 +15,7 @@ import {
   createTar,
   importArchive,
   listStoredSessions,
+  collectAttachmentRefs,
   projectKey,
   readArchive,
   readSessionFiles,
@@ -58,6 +59,47 @@ test('archive roundtrip keeps manifest metadata and payload', async () => {
   assert.equal(decoded.sessions.length, 1);
   assert.equal(decoded.sessions[0].id, id);
   assert.ok(decoded.sessions[0].files['session.v4.jsonl'].toString().includes(id));
+});
+
+test('archives carry referenced attachments and restore them on import', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'session-cleanup-backup-'));
+  try {
+    const id = 'session-attach-one';
+    const hash = 'a'.repeat(64);
+    const image = Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
+    const log =
+      headerLine(id, '/tmp/attach') +
+      JSON.stringify({ type: 'user/message', data: { content: [{ type: 'image', attachment: { attachmentId: `sha256:${hash}` } }] } }) +
+      '\n';
+    const archive = await createArchive(
+      [{ id, project: '--tmp-attach--', title: '', cwd: '/tmp/attach', createdAt: 1, files: { 'session.v4.jsonl': Buffer.from(log) } }],
+      { [hash]: image },
+    );
+    const decoded = await readArchive(archive);
+    assert.deepEqual(Object.keys(decoded.attachments), [hash]);
+    assert.deepEqual(decoded.manifest.attachments, [hash]);
+    const attachmentsRoot = join(root, '.attachments');
+    const first = await importArchive({ root, buffer: archive, attachmentsRoot });
+    assert.equal(first.attachments.stored, 1);
+    assert.deepEqual(await readFile(join(attachmentsRoot, hash.slice(0, 2), hash)), image);
+    const second = await importArchive({ root, buffer: archive, attachmentsRoot });
+    assert.equal(second.attachments.stored, 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('collectAttachmentRefs reads plain and multi-frame zstd logs', () => {
+  const hash = 'b'.repeat(64);
+  const line = JSON.stringify({ type: 'user/message', data: { content: [{ type: 'image', attachment: { attachmentId: `sha256:${hash}` } }] } });
+  const plain = { 'session.v4.jsonl': Buffer.from('{"type":"session","id":"x","cwd":"/tmp"}\n' + line + '\n') };
+  const zstd = {
+    'session.v4.jsonl.zstd': Buffer.concat([
+      zstdCompressSync(Buffer.from('{"type":"session","id":"y","cwd":"/tmp"}\n')),
+      zstdCompressSync(Buffer.from(line + '\n')),
+    ]),
+  };
+  assert.deepEqual([...collectAttachmentRefs([{ files: plain }, { files: zstd }])], [hash]);
 });
 
 test('import writes the session and refuses an existing id', async () => {
