@@ -150,6 +150,8 @@ window.__ModuleLoader__.load({
       '.wsc-transcript-note{margin:0 0 10px;color:var(--dsw-alias-label-secondary);font-size:11px}',
       '.wsc-backup-section{margin:0 0 20px}',
       '.wsc-backup-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 10px}',
+      '.wsc-import-field{display:flex;flex-direction:column;gap:6px;margin:0 0 12px;color:var(--dsw-alias-label-secondary);font-size:12.5px}',
+      '.wsc-import-field select{height:34px;padding:0 10px;border:.5px solid var(--dsw-alias-border-l2);border-radius:10px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:13px}',
       '.wsc-backup-file{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-secondary);font-size:12px}',
       '.wsc-trash-settings{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 12px;color:var(--dsw-alias-label-secondary);font-size:12.5px}',
       '.wsc-trash-settings input{width:64px;height:28px;padding:0 6px;border:.5px solid var(--dsw-alias-border-l2);border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:12px}',
@@ -236,6 +238,8 @@ window.__ModuleLoader__.load({
       deleteRunningBlocked: '会话正在运行中，不可删除；等这一轮结束再试。',
       backupSelected: '备份已选中（{n}）',
       backupStarted: '已开始导出备份…',
+      backupTargetWorkspace: '导入到工作区',
+      backupAutoWorkspace: '自动（按会话原目录）',
       backupCwdNote: '{n} 个会话的原工作目录不存在，已改写到 {path}。',
       refresh: '刷新',
       refreshing: '刷新中…',
@@ -386,6 +390,8 @@ window.__ModuleLoader__.load({
       deleteRunningBlocked: 'This session is running and cannot be deleted; wait for the turn to finish.',
       backupSelected: 'Back up selected ({n})',
       backupStarted: 'Backup download started…',
+      backupTargetWorkspace: 'Import into workspace',
+      backupAutoWorkspace: 'Automatic (each session\'s own folder)',
       backupCwdNote: '{n} sessions pointed at a directory that does not exist here; rewritten to {path}.',
       refresh: 'Refresh',
       refreshing: 'Refreshing…',
@@ -735,7 +741,7 @@ window.__ModuleLoader__.load({
     }
 
     /** Upload one backup archive to the Host import route. */
-    async function uploadBackup(file) {
+    async function uploadBackup(file, workspaceId) {
       if (file.size > 64 * 1024 * 1024) throw new Error('backup file exceeds the 64 MB limit');
       const bytes = new Uint8Array(await file.arrayBuffer());
       let binary = '';
@@ -747,7 +753,7 @@ window.__ModuleLoader__.load({
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ data: btoa(binary) }),
+        body: JSON.stringify(workspaceId === undefined || workspaceId === '' ? { data: btoa(binary) } : { data: btoa(binary), workspaceId }),
       });
       let body = null;
       try {
@@ -1139,7 +1145,7 @@ window.__ModuleLoader__.load({
       );
     }
 
-    function BackupDialog({ t, onClose, onImported }) {
+    function BackupDialog({ t, workspaces, onClose, onImported }) {
       const dialogRef = useRef(null);
       const backRef = useRef(null);
       const closeRef = useRef(onClose);
@@ -1147,6 +1153,7 @@ window.__ModuleLoader__.load({
       const inputRef = useRef(null);
       const [busy, setBusy] = useState(null);
       const [file, setFile] = useState(null);
+      const [targetWorkspaceId, setTargetWorkspaceId] = useState('');
       const [notice, setNotice] = useState(null);
       const [result, setResult] = useState(null);
 
@@ -1198,7 +1205,7 @@ window.__ModuleLoader__.load({
         setNotice(null);
         setResult(null);
         try {
-          const body = await uploadBackup(file);
+          const body = await uploadBackup(file, targetWorkspaceId);
           setResult(body);
           const imported = body.items.filter((item) => item.status === 'imported').length;
           if (imported > 0) onImported();
@@ -1265,6 +1272,23 @@ window.__ModuleLoader__.load({
               { className: 'wsc-backup-section' },
               h('h3', { className: 'wsc-section-title' }, t('backupImport')),
               h('p', { className: 'wsc-transcript-note' }, t('backupImportHint')),
+              h(
+                'label',
+                { className: 'wsc-import-field' },
+                h('span', null, t('backupTargetWorkspace')),
+                h(
+                  'select',
+                  {
+                    value: targetWorkspaceId,
+                    disabled: busy !== null,
+                    onChange: (event) => setTargetWorkspaceId(event.target.value),
+                  },
+                  h('option', { value: '' }, t('backupAutoWorkspace')),
+                  workspaces.map((workspace) =>
+                    h('option', { key: workspace.workspaceId, value: workspace.workspaceId }, (workspace.title === 'default-workspace' ? t('defaultWorkspaceName') : workspace.title || workspace.path) + ' · ' + workspace.path),
+                  ),
+                ),
+              ),
               h('input', {
                 type: 'file',
                 accept: '.tar.gz,application/gzip,application/x-gzip',
@@ -2550,6 +2574,7 @@ window.__ModuleLoader__.load({
               null,
               h(BackupDialog, {
                 t,
+                workspaces,
                 onClose: () => setBackupOpen(false),
                 onImported: () => {
                   void refreshAll();

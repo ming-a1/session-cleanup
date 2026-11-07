@@ -12,6 +12,7 @@
  * anything (see `lib/cleanup.js`).
  */
 import { basename, dirname, resolve as resolvePath } from 'node:path';
+import { realpath } from 'node:fs/promises';
 
 import {
   createArchive,
@@ -514,13 +515,22 @@ async function handleImport(ctx, req, res) {
     const buffer = Buffer.from(payload.data, 'base64');
     const root = resolveRoot(ctx);
     let targetCwd;
-    try {
-      const candidate = ctx.workingDirectory?.defaultDirectory;
-      if (typeof candidate === 'string' && candidate.length > 0) targetCwd = candidate;
-    } catch {
-      targetCwd = undefined;
+    let forceCwd = false;
+    let targetWorkspace;
+    if (typeof payload.workspaceId === 'string' && payload.workspaceId.length > 0) {
+      targetWorkspace = ctx.workspaceRegistry.get(payload.workspaceId);
+      if (targetWorkspace === undefined) throw new RouteError(404, 'workspace not found');
+      targetCwd = await realpath(targetWorkspace.path);
+      forceCwd = true;
+    } else {
+      try {
+        const candidate = ctx.workingDirectory?.defaultDirectory;
+        if (typeof candidate === 'string' && candidate.length > 0) targetCwd = candidate;
+      } catch {
+        targetCwd = undefined;
+      }
     }
-    const result = await importArchive({ root, buffer, targetCwd });
+    const result = await importArchive({ root, buffer, targetCwd, forceCwd });
     // A previously deleted session can still sit in the archived set; a fresh
     // import of the same id must come back visible, not hidden. Imported rows
     // also have no workspace record yet, so attach them where their cwd lands.
@@ -532,10 +542,14 @@ async function handleImport(ctx, req, res) {
         // Archiving state is best-effort.
       }
       try {
-        const located = await locateSessionDir(root, item.id);
-        const cwd = located.status === 'found' ? await readSessionCwd(located.dir) : undefined;
-        const workspace = cwd === undefined ? undefined : await ctx.workspaceRegistry.resolveByPath(cwd);
-        if (workspace !== undefined) await workspace.attachSession(item.id);
+        if (targetWorkspace !== undefined) {
+          await targetWorkspace.attachSession(item.id);
+        } else {
+          const located = await locateSessionDir(root, item.id);
+          const cwd = located.status === 'found' ? await readSessionCwd(located.dir) : undefined;
+          const workspace = cwd === undefined ? undefined : await ctx.workspaceRegistry.resolveByPath(cwd);
+          if (workspace !== undefined) await workspace.attachSession(item.id);
+        }
       } catch {
         // An ungrouped import is still listed under "all sessions".
       }

@@ -15,6 +15,7 @@ import {
   createTar,
   importArchive,
   listStoredSessions,
+  projectKey,
   readArchive,
   readSessionFiles,
   readTar,
@@ -104,7 +105,7 @@ test('import rewrites a missing cwd to the target default directory', async () =
     const result = await importArchive({ root, buffer: archive, targetCwd: root });
     assert.equal(result.items[0].status, 'imported');
     assert.equal(result.items[0].cwdRewritten, true);
-    const text = await readFile(join(root, '--tmp-move--', encodeSegment(id), 'session.v4.jsonl'), 'utf8');
+    const text = await readFile(join(root, projectKey(root), encodeSegment(id), 'session.v4.jsonl'), 'utf8');
     const header = JSON.parse(text.split('\n')[0]);
     assert.equal(header.cwd, root);
     await assert.rejects(importArchive({ root, buffer: archive, targetCwd: 'relative/path' }), /existing absolute directory/);
@@ -133,13 +134,41 @@ test('import keeps later zstd frames when it rewrites a missing cwd', async () =
     ]);
     const result = await importArchive({ root, buffer: archive, targetCwd: root });
     assert.equal(result.items[0].status, 'imported');
-    const stored = await readFile(join(root, '--tmp-move--', encodeSegment(id), 'session.v4.jsonl.zstd'));
+    const stored = await readFile(join(root, projectKey(root), encodeSegment(id), 'session.v4.jsonl.zstd'));
     const magic = Buffer.from([0x28, 0xb5, 0x2f, 0xfd]);
     const next = stored.indexOf(magic, 4);
     assert.ok(next > 0);
     const head = JSON.parse(zstdDecompressSync(stored.subarray(0, next)).toString('utf8').split('\n')[0]);
     assert.equal(head.cwd, root);
     assert.deepEqual(zstdDecompressSync(stored.subarray(next)), event);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('import can force every session into a chosen workspace directory', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'session-cleanup-backup-'));
+  try {
+    const id = 'session-force-cwd';
+    const original = join(root, 'original-cwd');
+    await mkdir(original, { recursive: true });
+    const archive = await createArchive([
+      {
+        id,
+        project: projectKey(original),
+        title: '',
+        cwd: original,
+        createdAt: 1,
+        files: { 'session.v4.jsonl': Buffer.from(headerLine(id, original)) },
+      },
+    ]);
+    const target = join(root, 'chosen-workspace');
+    await mkdir(target, { recursive: true });
+    const result = await importArchive({ root, buffer: archive, targetCwd: target, forceCwd: true });
+    assert.equal(result.items[0].status, 'imported');
+    assert.equal(result.items[0].cwdRewritten, true);
+    const stored = await readFile(join(root, projectKey(target), encodeSegment(id), 'session.v4.jsonl'), 'utf8');
+    assert.equal(JSON.parse(stored.split('\n')[0]).cwd, target);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
