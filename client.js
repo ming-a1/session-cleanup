@@ -52,7 +52,7 @@ window.__ModuleLoader__.load({
       '.wsc-btn-refresh{min-width:86px;justify-content:center}',
       '.wsc-link{padding:2px 6px;border:0;border-radius:8px;background:none;color:var(--dsw-alias-brand-primary);font:inherit;font-size:12px;white-space:nowrap;cursor:pointer}',
       '.wsc-link:hover{background:var(--dsw-alias-bg-layer-2)}',
-      '.wsc-group{margin:0 0 16px;overflow:hidden;border:.5px solid var(--dsw-alias-border-l1);border-radius:14px;background:var(--dsw-alias-bg-layer-1)}',
+      '.wsc-group{position:relative;margin:0 0 16px;border:.5px solid var(--dsw-alias-border-l1);border-radius:14px;background:var(--dsw-alias-bg-layer-1)}',
       '.wsc-group-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:.5px solid var(--dsw-alias-border-l1)}',
       '.wsc-caret{display:flex;align-items:center;justify-content:center;flex:none;width:24px;height:24px;padding:0;border:0;border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer}',
       '.wsc-caret:hover{background:var(--dsw-alias-bg-layer-2)}',
@@ -64,6 +64,8 @@ window.__ModuleLoader__.load({
       '.wsc-group-path{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-secondary);font-size:12px}',
       '.wsc-group-count{flex:none;margin-left:auto;color:var(--dsw-alias-label-secondary);font-size:12px}',
       '.wsc-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:.5px solid var(--dsw-alias-border-l1);transition:background-color .12s ease,box-shadow .12s ease}',
+      '.wsc-row:last-child{border-bottom:0;border-bottom-left-radius:13px;border-bottom-right-radius:13px}',
+      '.wsc-row-menu-open{position:relative;z-index:20}',
       '.wsc-row:last-child{border-bottom:0}',
       '.wsc-row:hover{background:var(--dsw-alias-bg-layer-2)}',
       '.wsc-row-selected{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 12%,transparent);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}',
@@ -895,7 +897,7 @@ window.__ModuleLoader__.load({
       return h(
         'div',
         {
-          className: 'wsc-row' + (selected ? ' wsc-row-selected' : '') + (archived ? ' wsc-row-archived' : '') + (running ? ' wsc-row-running' : ''),
+          className: 'wsc-row' + (selected ? ' wsc-row-selected' : '') + (archived ? ' wsc-row-archived' : '') + (running ? ' wsc-row-running' : '') + (menuOpen ? ' wsc-row-menu-open' : ''),
           style: depth > 0 ? { paddingLeft: 12 + depth * 18 } : undefined,
         },
         h('input', {
