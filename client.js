@@ -2048,6 +2048,17 @@ window.__ModuleLoader__.load({
         for (const workspace of workspaces) {
           for (const id of workspace.sessionIds || []) if (!memberOf.has(id)) memberOf.set(id, workspace.workspaceId);
         }
+        // Freshly imported sessions can appear before the workspace follow
+        // snapshot learns their membership; fall back to the cwd directory so
+        // they group immediately instead of showing as ungrouped.
+        const normalizePath = (value) => String(value ?? '').replace(/\/+$/, '') || '/';
+        const workspaceByPath = new Map(workspaces.map((workspace) => [normalizePath(workspace.path), workspace.workspaceId]));
+        for (const id of Object.keys(byId)) {
+          if (memberOf.has(id)) continue;
+          const row = byId[id];
+          const key = row !== undefined && typeof row.cwd === 'string' ? workspaceByPath.get(normalizePath(row.cwd)) : undefined;
+          if (key !== undefined) memberOf.set(id, key);
+        }
         // "Who created it owns it": a Session belongs to its nearest ancestor's
         // Workspace. Subagent children therefore stay under the parent that
         // spawned them even when their own header does not list membership.
