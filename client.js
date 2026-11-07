@@ -16,6 +16,7 @@ window.__ModuleLoader__.load({
   id: '@local/session-cleanup',
   factory(require) {
     const React = require('react');
+    const ReactDOM = require('react-dom');
     const h = React.createElement;
     const { useCallback, useEffect, useMemo, useRef, useState } = React;
 
@@ -58,6 +59,8 @@ window.__ModuleLoader__.load({
       '.wsc-caret svg{transition:transform .12s ease}',
       '.wsc-caret-open svg{transform:rotate(90deg)}',
       '.wsc-group-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500}',
+      '.wsc-group-toggle{border:0;background:transparent;padding:0;color:inherit;font:inherit;font-size:13px;font-weight:500;text-align:left;cursor:pointer}',
+      '.wsc-group-toggle:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}',
       '.wsc-group-path{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-secondary);font-size:12px}',
       '.wsc-group-count{flex:none;margin-left:auto;color:var(--dsw-alias-label-secondary);font-size:12px}',
       '.wsc-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:.5px solid var(--dsw-alias-border-l1);transition:background-color .12s ease,box-shadow .12s ease}',
@@ -91,6 +94,7 @@ window.__ModuleLoader__.load({
       '.wsc-footer-info{margin-right:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-secondary);font-size:12px}',
       '.wsc-notice{position:fixed;left:50%;bottom:24px;z-index:70;transform:translateX(-50%);padding:8px 14px;border:.5px solid var(--dsw-alias-border-l2);border-radius:12px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font-size:13px}',
       '.wsc-overlay{position:fixed;inset:0;z-index:80;pointer-events:auto;display:flex;align-items:center;justify-content:center;padding:24px;background:color-mix(in srgb,var(--dsw-alias-label-primary) 42%,transparent)}',
+      '.wsc-overlay-nested{z-index:90}',
       '.wsc-mi-wrap{position:relative}',
       '.wsc-mi-sep{height:.5px;margin:3px 2px;background:var(--dsw-alias-border-l2)}',
       '.wsc-mi{display:flex;align-items:center;gap:6px;width:100%;min-height:34px;padding:6px 8px;border:none;border-radius:8px;background:transparent;cursor:pointer;font:inherit;font-size:13px;line-height:20px;color:var(--dsw-alias-label-primary);text-align:left}',
@@ -154,10 +158,7 @@ window.__ModuleLoader__.load({
       '.wsc-trash-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:var(--dsw-alias-label-primary)}',
       '.wsc-trash-meta{margin-top:2px;overflow-wrap:anywhere;color:var(--dsw-alias-label-secondary);font-size:11.5px}',
       '.wsc-trash-actions{display:flex;flex:none;gap:6px}',
-      '.wsc-confirm{margin:0 0 12px;padding:10px;border:.5px solid var(--dsw-alias-state-error-primary);border-radius:12px;background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 6%,transparent)}',
-      '.wsc-confirm-title{font-size:13px;font-weight:600;color:var(--dsw-alias-state-error-primary)}',
-      '.wsc-confirm p{margin:4px 0 0;color:var(--dsw-alias-label-secondary);font-size:12px;overflow-wrap:anywhere}',
-      '.wsc-page :focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}',
+      '.wsc-page :focus-visible,.wsc-overlay :focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}',
       '@media (max-width:640px){.wsc-group-path{display:none}.wsc-content{padding:20px 16px 32px}.wsc-footer{padding:8px 16px}.wsc-footer-info{flex:1 0 100%;margin:0 0 2px}.wsc-footer-inner{gap:6px}.wsc-footer-inner .wsc-btn{flex:none}}',
     ].join('');
 
@@ -168,6 +169,7 @@ window.__ModuleLoader__.load({
       searchPlaceholder: '搜索标题、目录或会话 ID',
       allWorkspaces: '全部工作区',
       ungrouped: '未归入工作区',
+      defaultWorkspaceName: '默认工作区',
       showArchived: '显示已归档',
       selectAll: '全选当前结果',
       clearAll: '取消全选',
@@ -216,8 +218,6 @@ window.__ModuleLoader__.load({
       backupTitle: '备份 / 恢复',
       backupExportAll: '导出全部会话',
       backupExportHint: '导出一个 .tar.gz，包含会话日志与元数据；运行中的会话可能缺少最后几条。',
-      backupExporting: '正在导出…',
-      backupExported: '已导出 {n} 个会话。',
       backupImportHint: '选择由本插件导出的 .tar.gz 导入；已存在的会话不会覆盖。',
       backupChooseFile: '选择备份文件',
       backupImport: '导入',
@@ -230,12 +230,12 @@ window.__ModuleLoader__.load({
       backupStatusConflict: '已存在',
       backupStatusInvalid: '无效',
       backupStatusFailed: '失败',
-      backupDownloadFailed: '导出失败：{message}',
       backupImportFailed: '导入失败：{message}',
       backupRow: '备份',
       runningLocked: '运行中，不能选择',
       deleteRunningBlocked: '会话正在运行中，不可删除；等这一轮结束再试。',
       backupSelected: '备份已选中（{n}）',
+      backupStarted: '已开始导出备份…',
       backupCwdNote: '{n} 个会话的原工作目录不存在，已改写到 {path}。',
       refresh: '刷新',
       refreshing: '刷新中…',
@@ -319,6 +319,7 @@ window.__ModuleLoader__.load({
       searchPlaceholder: 'Search title, directory, or session ID',
       allWorkspaces: 'All workspaces',
       ungrouped: 'Not in a workspace',
+      defaultWorkspaceName: 'Default workspace',
       showArchived: 'Show archived',
       selectAll: 'Select all results',
       clearAll: 'Clear selection',
@@ -367,8 +368,6 @@ window.__ModuleLoader__.load({
       backupTitle: 'Backup / restore',
       backupExportAll: 'Export all sessions',
       backupExportHint: 'Downloads one .tar.gz with session logs and metadata; a running session may miss its last few events.',
-      backupExporting: 'Exporting…',
-      backupExported: 'Exported {n} sessions.',
       backupImportHint: 'Pick a .tar.gz exported by this plugin; existing sessions are never overwritten.',
       backupChooseFile: 'Choose backup file',
       backupImport: 'Import',
@@ -381,12 +380,12 @@ window.__ModuleLoader__.load({
       backupStatusConflict: 'Exists',
       backupStatusInvalid: 'Invalid',
       backupStatusFailed: 'Failed',
-      backupDownloadFailed: 'Export failed: {message}',
       backupImportFailed: 'Import failed: {message}',
       backupRow: 'Backup',
       runningLocked: 'Running; cannot be selected',
       deleteRunningBlocked: 'This session is running and cannot be deleted; wait for the turn to finish.',
       backupSelected: 'Back up selected ({n})',
+      backupStarted: 'Backup download started…',
       backupCwdNote: '{n} sessions pointed at a directory that does not exist here; rewritten to {path}.',
       refresh: 'Refresh',
       refreshing: 'Refreshing…',
@@ -613,6 +612,13 @@ window.__ModuleLoader__.load({
       return { ids, labels };
     }
 
+    /** Render dialogs into document.body: panel containers can create a
+     * containing block for position:fixed, which would clip the overlay. */
+    function PortalFrame({ children }) {
+      if (typeof document === 'undefined') return null;
+      return ReactDOM.createPortal(children, document.body);
+    }
+
     /** 16px outline trash glyph copied from dsh-web-mobile (IconTrashOutline16). */
     function TrashIcon({ size = 12 }) {
       return h(
@@ -695,44 +701,37 @@ window.__ModuleLoader__.load({
       return body.item;
     }
 
-    /** Download one backup archive through the Host route. */
-    async function downloadBackup(sessionIds) {
-      const payload = sessionIds === undefined ? { action: 'backup-export' } : { action: 'backup-export', sessionIds };
-      const response = await fetch(DELETE_ROUTE, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) {
-        let message = 'HTTP ' + response.status;
-        try {
-          const body = await response.json();
-          if (body !== null && typeof body.error === 'string') message = body.error;
-        } catch {
-          // HTML error page.
-        }
-        throw new Error(message);
-      }
-      const disposition = response.headers.get('content-disposition') || '';
-      const match = /filename="([^"]+)"/.exec(disposition);
-      let filename = match !== null ? match[1] : 'dsh-sessions-backup.tar.gz';
-      const encodedName = response.headers.get('x-backup-name');
-      if (encodedName !== null && encodedName.length > 0) {
-        try {
-          filename = decodeURIComponent(encodedName);
-        } catch {
-          // Keep the ASCII fallback when the header is malformed.
-        }
-      }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+    /** Strip characters that break a download filename. */
+    function sanitizeBackupName(value) {
+      const cleaned = String(value ?? '')
+        .replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/[. ]+$/g, '');
+      return cleaned.slice(0, 80) || '会话备份';
+    }
+
+    /** Backup filename from the first session title and the session count. */
+    function backupFilename(title, count) {
+      const base = sanitizeBackupName(title);
+      return `${count > 1 ? `${base} 等${count}个会话` : base}.tar.gz`;
+    }
+
+    /**
+     * Start a native browser download for one backup export.
+     *
+     * A same-origin GET keeps the transfer in the browser's download manager,
+     * so progress shows immediately and large archives never buffer in memory.
+     */
+    function startBackup(sessionIds, filename) {
+      const query = sessionIds === undefined ? 'all=1' : 'ids=' + encodeURIComponent(sessionIds.join(','));
       const anchor = document.createElement('a');
-      anchor.href = url;
+      anchor.href = '/session-cleanup/export?' + query;
       anchor.download = filename;
+      anchor.style.display = 'none';
+      document.body.appendChild(anchor);
       anchor.click();
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
-      return { filename, count: Number(response.headers.get('x-session-count') || '0') };
+      window.setTimeout(() => anchor.remove(), 1500);
     }
 
     /** Upload one backup archive to the Host import route. */
@@ -1183,18 +1182,10 @@ window.__ModuleLoader__.load({
         }
       };
 
-      const exportAll = async () => {
+      const exportAll = () => {
         if (busy !== null) return;
-        setBusy('export');
-        setNotice(null);
-        try {
-          const outcome = await downloadBackup();
-          setNotice(t('backupExported', { n: outcome.count }));
-        } catch (failure) {
-          setNotice(t('backupDownloadFailed', { message: messageOf(failure) }));
-        } finally {
-          setBusy(null);
-        }
+        startBackup(undefined, '会话备份-全部会话.tar.gz');
+        setNotice(t('backupStarted'));
       };
 
       const importFile = async () => {
@@ -1266,7 +1257,7 @@ window.__ModuleLoader__.load({
               h(
                 'div',
                 { className: 'wsc-backup-actions' },
-                h('button', { type: 'button', className: 'wsc-btn', disabled: busy !== null, onClick: () => void exportAll() }, busy === 'export' ? t('backupExporting') : t('backupExportAll')),
+                h('button', { type: 'button', className: 'wsc-btn', disabled: busy !== null, onClick: () => void exportAll() }, t('backupExportAll')),
               ),
             ),
             h(
@@ -1318,6 +1309,41 @@ window.__ModuleLoader__.load({
                     : null,
                 )
               : null,
+          ),
+        ),
+      );
+    }
+
+    /** Small modal used above a dialog for destructive confirmations. */
+    function ConfirmLayer({ t, title, body, confirmLabel, busy, onCancel, onConfirm }) {
+      const cancelRef = useRef(null);
+      useEffect(() => {
+        if (cancelRef.current !== null) cancelRef.current.focus();
+      }, []);
+      return h(
+        'div',
+        {
+          className: 'wsc-overlay wsc-overlay-nested',
+          onMouseDown: (event) => {
+            if (event.target === event.currentTarget && !busy) onCancel();
+          },
+          onKeyDown: (event) => {
+            if (event.key === 'Escape') {
+              event.stopPropagation();
+              if (!busy) onCancel();
+            }
+          },
+        },
+        h(
+          'div',
+          { className: 'wsc-dialog', role: 'dialog', 'aria-modal': 'true' },
+          h('h2', null, title),
+          h('p', null, body),
+          h(
+            'div',
+            { className: 'wsc-dialog-actions' },
+            h('button', { type: 'button', className: 'wsc-btn', disabled: busy, ref: cancelRef, onClick: onCancel }, t('trashCancel')),
+            h('button', { type: 'button', className: 'wsc-btn wsc-btn-danger', disabled: busy, onClick: onConfirm }, confirmLabel),
           ),
         ),
       );
@@ -1507,30 +1533,32 @@ window.__ModuleLoader__.load({
             phase === 'ready' && items.length === 0 ? h('p', { className: 'wsc-empty' }, t('trashEmpty')) : null,
             confirmEmpty
               ? h(
-                  'div',
-                  { className: 'wsc-confirm' },
-                  h('div', { className: 'wsc-confirm-title' }, t('trashEmptyConfirmTitle')),
-                  h('p', null, t('trashEmptyConfirmBody', { n: items.length })),
-                  h(
-                    'div',
-                    { className: 'wsc-dialog-actions' },
-                    h('button', { type: 'button', className: 'wsc-btn', disabled: busy, onClick: () => setConfirmEmpty(false) }, t('trashCancel')),
-                    h('button', { type: 'button', className: 'wsc-btn wsc-btn-danger', disabled: busy, onClick: () => void purgeAll() }, t('trashEmptyConfirm')),
-                  ),
+                  PortalFrame,
+                  null,
+                  h(ConfirmLayer, {
+                    t,
+                    title: t('trashEmptyConfirmTitle'),
+                    body: t('trashEmptyConfirmBody', { n: items.length }),
+                    confirmLabel: t('trashEmptyConfirm'),
+                    busy,
+                    onCancel: () => setConfirmEmpty(false),
+                    onConfirm: () => void purgeAll(),
+                  }),
                 )
               : null,
             pending !== null
               ? h(
-                  'div',
-                  { className: 'wsc-confirm' },
-                  h('div', { className: 'wsc-confirm-title' }, t('trashConfirmTitle')),
-                  h('p', null, t('trashConfirmBody', { title: titleOf(pending) })),
-                  h(
-                    'div',
-                    { className: 'wsc-dialog-actions' },
-                    h('button', { type: 'button', className: 'wsc-btn', disabled: busy, onClick: () => setPending(null) }, t('trashCancel')),
-                    h('button', { type: 'button', className: 'wsc-btn wsc-btn-danger', disabled: busy, onClick: () => void purge(pending) }, t('trashConfirm')),
-                  ),
+                  PortalFrame,
+                  null,
+                  h(ConfirmLayer, {
+                    t,
+                    title: t('trashConfirmTitle'),
+                    body: t('trashConfirmBody', { title: titleOf(pending) }),
+                    confirmLabel: t('trashConfirm'),
+                    busy,
+                    onCancel: () => setPending(null),
+                    onConfirm: () => void purge(pending),
+                  }),
                 )
               : null,
             phase === 'ready'
@@ -1951,7 +1979,7 @@ window.__ModuleLoader__.load({
       const [search, setSearch] = useState('');
       const [scope, setScope] = useState('all');
       const [showArchived, setShowArchived] = useState(false);
-      const [collapsed, setCollapsed] = useState(() => new Set());
+      const [openGroups, setOpenGroups] = useState(() => new Set());
       const [expanded, setExpanded] = useState(() => new Set());
       const [selected, setSelected] = useState(() => new Set());
       const [archiveRequest, setArchiveRequest] = useState(null);
@@ -2038,7 +2066,10 @@ window.__ModuleLoader__.load({
         for (const workspace of workspaces) {
           result.push({
             key: workspace.workspaceId,
-            title: workspace.title || basename(workspace.path) || String(workspace.workspaceId),
+            title:
+              workspace.title === 'default-workspace'
+                ? t('defaultWorkspaceName')
+                : workspace.title || basename(workspace.path) || String(workspace.workspaceId),
             path: workspace.path,
             sessions: buckets.get(workspace.workspaceId),
           });
@@ -2146,24 +2177,29 @@ window.__ModuleLoader__.load({
       // A backup follows the same ownership as deletion: the row's session plus
       // every subagent beneath it, even when search or archiving hides them.
       const backupSingle = useCallback(
-        async (id) => {
+        (id) => {
+          // Build the parent -> children index from every known session, so the
+          // backup covers subagents hidden by search, scope, or archiving.
+          const children = new Map();
+          for (const candidate of Object.values(byId)) {
+            if (candidate === undefined || candidate === null || candidate.parentId === undefined) continue;
+            const list = children.get(candidate.parentId);
+            if (list === undefined) children.set(candidate.parentId, [candidate.id]);
+            else list.push(candidate.id);
+          }
           const family = [];
           const walk = (current) => {
             if (family.includes(current)) return;
             family.push(current);
-            for (const group of groups) {
-              for (const child of group.children.get(current) ?? []) walk(child.id);
-            }
+            for (const child of children.get(current) ?? []) walk(child);
           };
           walk(id);
-          try {
-            const outcome = await downloadBackup(family);
-            setNotice(t('backupExported', { n: outcome.count }));
-          } catch (failure) {
-            setNotice(t('backupDownloadFailed', { message: failure !== null && failure !== undefined && failure.message ? failure.message : String(failure) }));
-          }
+          const row = byId[id];
+          const title = row !== undefined ? row.displayTitle || row.title || '' : '';
+          startBackup(family, backupFilename(title, family.length));
+          setNotice(t('backupStarted'));
         },
-        [groups, t],
+        [byId, t],
       );
 
       useEffect(() => {
@@ -2235,7 +2271,7 @@ window.__ModuleLoader__.load({
       }, []);
 
       const toggleGroupCollapse = useCallback((key) => {
-        setCollapsed((previous) => {
+        setOpenGroups((previous) => {
           const next = new Set(previous);
           if (next.has(key)) next.delete(key);
           else next.add(key);
@@ -2332,13 +2368,11 @@ window.__ModuleLoader__.load({
       const selectedArchived = selectedIds.filter((id) => archivedSet.has(id));
       const selectedActive = selectedIds.filter((id) => !archivedSet.has(id));
 
-      const backupSelected = async () => {
-        try {
-          const outcome = await downloadBackup([...selectedIds]);
-          setNotice(t('backupExported', { n: outcome.count }));
-        } catch (failure) {
-          setNotice(t('backupDownloadFailed', { message: failure !== null && failure !== undefined && failure.message ? failure.message : String(failure) }));
-        }
+      const backupSelected = () => {
+        const first = byId[selectedIds[0]];
+        const title = first !== undefined ? first.displayTitle || first.title || '' : '';
+        startBackup([...selectedIds], backupFilename(title, selectedIds.length));
+        setNotice(t('backupStarted'));
       };
 
 
@@ -2405,7 +2439,7 @@ window.__ModuleLoader__.load({
             visible.length === 0
               ? h('p', { className: 'wsc-empty' }, loading ? t('loading') : groups.length === 0 ? t('empty') : t('noMatches'))
               : visible.map((group) => {
-                  const open = !collapsed.has(group.key);
+                  const open = openGroups.has(group.key) || search.trim() !== '';
                   const groupIds = group.ids.filter((id) => byId[id]?.running !== true);
                   const groupAll = groupIds.length > 0 && groupIds.every((id) => selected.has(id));
                   return h(
@@ -2425,7 +2459,17 @@ window.__ModuleLoader__.load({
                         },
                         h(CaretIcon),
                       ),
-                      h('span', { className: 'wsc-group-title' }, group.title),
+                      h(
+                        'button',
+                        {
+                          type: 'button',
+                          className: 'wsc-group-title wsc-group-toggle',
+                          'aria-expanded': open,
+                          'aria-label': (open ? t('collapse') : t('expand')) + ' ' + group.title,
+                          onClick: () => toggleGroupCollapse(group.key),
+                        },
+                        group.title,
+                      ),
                       group.path ? h('span', { className: 'wsc-group-path', title: group.path }, group.path) : null,
                       h('span', { className: 'wsc-group-count' }, t('groupCount', { n: group.count })),
                       h('button', { type: 'button', className: 'wsc-link', onClick: () => setMany(groupIds, !groupAll) }, groupAll ? t('clearGroup') : t('selectGroup')),
@@ -2499,42 +2543,58 @@ window.__ModuleLoader__.load({
           ),
         ),
         notice !== null ? h('div', { className: 'wsc-notice', role: 'status', 'aria-live': 'polite' }, notice) : null,
-        transcriptId !== null ? h(TranscriptDialog, { id: transcriptId, t, onClose: () => setTranscriptId(null) }) : null,
+        transcriptId !== null ? h(PortalFrame, null, h(TranscriptDialog, { id: transcriptId, t, onClose: () => setTranscriptId(null) })) : null,
         backupOpen
-          ? h(BackupDialog, {
-              t,
-              onClose: () => setBackupOpen(false),
-              onImported: () => {
-                void refreshAll();
-              },
-            })
+          ? h(
+              PortalFrame,
+              null,
+              h(BackupDialog, {
+                t,
+                onClose: () => setBackupOpen(false),
+                onImported: () => {
+                  void refreshAll();
+                },
+              }),
+            )
           : null,
         trashOpen
-          ? h(TrashDialog, {
-              t,
-              onClose: () => setTrashOpen(false),
-              onChanged: () => {
-                void refreshAll();
-              },
-            })
+          ? h(
+              PortalFrame,
+              null,
+              h(TrashDialog, {
+                t,
+                onClose: () => setTrashOpen(false),
+                onChanged: () => {
+                  void refreshAll();
+                },
+              }),
+            )
           : null,
         archiveRequest !== null
-          ? h(ArchiveDialog, {
-              request: archiveRequest,
-              t,
-              archiveSession,
-              onSettled: (ok, failedIds) => settleArchive(archiveRequest, ok, failedIds),
-              onClose: () => setArchiveRequest(null),
-            })
+          ? h(
+              PortalFrame,
+              null,
+              h(ArchiveDialog, {
+                request: archiveRequest,
+                t,
+                archiveSession,
+                onSettled: (ok, failedIds) => settleArchive(archiveRequest, ok, failedIds),
+                onClose: () => setArchiveRequest(null),
+              }),
+            )
           : null,
         purgeIds !== null
-          ? h(PurgeDialog, {
-              ids: purgeIds,
-              labels,
-              t,
-              onClose: () => setPurgeIds(null),
-              onFinished: settlePurge,
-            })
+          ? h(
+              PortalFrame,
+              null,
+              h(PurgeDialog, {
+                ids: purgeIds,
+                labels,
+                t,
+                onClose: () => setPurgeIds(null),
+                onFinished: settlePurge,
+              }),
+            )
           : null,
       );
     }

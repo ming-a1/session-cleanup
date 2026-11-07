@@ -40,6 +40,8 @@ export const inject = ['sessionPersistence', 'sessionQuery', 'sessions', 'agents
 const ROUTE = '/session-cleanup/delete';
 /** Backup upload endpoint; a restore may carry many megabytes. */
 const IMPORT_ROUTE = '/session-cleanup/import';
+/** Direct GET download endpoint; the browser saves natively and shows progress. */
+const EXPORT_ROUTE = '/session-cleanup/export';
 /** Cap for one base64 import body. */
 const IMPORT_BODY_LIMIT = 128 * 1024 * 1024;
 /** Request body cap; a batch of ids is far smaller. */
@@ -347,27 +349,29 @@ async function buildBackup(ctx, root, ids) {
       targets.push({ id, project: basename(dirname(located.dir)), dir: located.dir });
     }
   }
-  const sessions = [];
-  for (const target of targets) {
-    const files = await readSessionFiles(target.dir);
-    if (Object.keys(files).length === 0) continue;
-    let header;
-    try {
-      header = (await ctx.sessionPersistence.stat(target.id))?.header;
-    } catch {
-      header = undefined;
-    }
-    sessions.push({
-      id: target.id,
-      project: target.project,
-      title: (await sessionTitle(ctx, target.id)) ?? '',
-      cwd: header?.cwd,
-      createdAt: header?.createdAt ?? Date.now(),
-      files,
-    });
-  }
+  const collected = await Promise.all(
+    targets.map(async (target) => {
+      const files = await readSessionFiles(target.dir);
+      if (Object.keys(files).length === 0) return undefined;
+      let header;
+      try {
+        header = (await ctx.sessionPersistence.stat(target.id))?.header;
+      } catch {
+        header = undefined;
+      }
+      return {
+        id: target.id,
+        project: target.project,
+        title: (await sessionTitle(ctx, target.id)) ?? '',
+        cwd: header?.cwd,
+        createdAt: header?.createdAt ?? Date.now(),
+        files,
+      };
+    }),
+  );
+  const sessions = collected.filter((session) => session !== undefined);
   if (sessions.length === 0) throw new RouteError(404, 'no stored sessions to export');
-  return { archive: createArchive(sessions), count: sessions.length, title: sessions[0].title };
+  return { archive: await createArchive(sessions), count: sessions.length, title: sessions[0].title };
 }
 
 /** Strip characters that break a download filename. */
@@ -419,6 +423,58 @@ async function handleExport(ctx, res, payload) {
     'x-backup-name': encodeURIComponent(`${base}.tar.gz`),
   });
   res.end(archive);
+}
+
+/**
+ * Answer one direct backup download (GET), so the browser owns the transfer.
+ *
+ * @param ctx - plugin context.
+ * @param req - incoming request.
+ * @param res - response to complete.
+ */
+async function handleExportGet(ctx, req, res) {
+  try {
+    const rejection = ctx.connection.requestRejection({ headers: req.headers });
+    if (rejection !== undefined) {
+      res.writeHead(rejection);
+      res.end(rejection === 401 ? 'unauthorized' : 'forbidden');
+      return;
+    }
+    if (req.method !== 'GET') {
+      res.writeHead(405, { allow: 'GET', 'content-type': 'text/plain' });
+      res.end('method not allowed');
+      return;
+    }
+    const url = new URL(req.url, 'http://localhost');
+    let ids;
+    if (url.searchParams.get('all') === '1') {
+      ids = undefined;
+    } else {
+      const raw = url.searchParams.get('ids') ?? '';
+      const parts = raw.split(',').filter((value) => value.length > 0);
+      const normalized = normalizeSessionIds(parts);
+      if (normalized.error !== undefined) throw new RouteError(400, normalized.error);
+      ids = normalized.ids;
+    }
+    const { archive, count, title } = await buildBackup(ctx, resolveRoot(ctx), ids);
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+$/, '').replace('T', '-');
+    const base = backupFileBase(count, title);
+    const utf8Name = encodeURIComponent(`${base}.tar.gz`);
+    res.writeHead(200, {
+      'content-type': 'application/gzip',
+      'content-disposition': `attachment; filename="dsh-sessions-${stamp}.tar.gz"; filename*=UTF-8''${utf8Name}`,
+      'content-length': String(archive.length),
+      'x-session-count': String(count),
+    });
+    res.end(archive);
+  } catch (error) {
+    const status = error instanceof RouteError ? error.status : 500;
+    try {
+      respondJson(res, status, { error: error instanceof Error ? error.message : String(error) });
+    } catch {
+      // Socket already gone.
+    }
+  }
 }
 
 /**
@@ -711,6 +767,18 @@ export function apply(ctx) {
         },
       }),
     'session-cleanup: import route',
+  );
+
+  ctx.effect(
+    () =>
+      ctx.webServer.register({
+        kind: 'exact',
+        path: EXPORT_ROUTE,
+        handler: (req, res) => {
+          void handleExportGet(ctx, req, res);
+        },
+      }),
+    'session-cleanup: export route',
   );
 
   ctx.inject(['tools'], (toolCtx) => {

@@ -39,9 +39,9 @@ test('tar roundtrip preserves names, bytes, and long paths', () => {
   assert.equal(parsed[2].data.length, 1500);
 });
 
-test('archive roundtrip keeps manifest metadata and payload', () => {
+test('archive roundtrip keeps manifest metadata and payload', async () => {
   const id = 'session-backup-one';
-  const archive = createArchive([
+  const archive = await createArchive([
     {
       id,
       project: '--tmp--',
@@ -51,7 +51,7 @@ test('archive roundtrip keeps manifest metadata and payload', () => {
       files: { 'session.v4.jsonl': Buffer.from(headerLine(id, '/tmp/project')) },
     },
   ]);
-  const decoded = readArchive(archive);
+  const decoded = await readArchive(archive);
   assert.equal(decoded.manifest.format, 1);
   assert.equal(decoded.manifest.sessions[0].title, '问候');
   assert.equal(decoded.sessions.length, 1);
@@ -64,7 +64,7 @@ test('import writes the session and refuses an existing id', async () => {
   try {
     const id = 'session-import-one';
     const project = '--tmp-backup--';
-    const archive = createArchive([
+    const archive = await createArchive([
       {
         id,
         project,
@@ -91,7 +91,7 @@ test('import rewrites a missing cwd to the target default directory', async () =
   try {
     const id = 'session-move-one';
     const missing = '/definitely/not/here/' + id;
-    const archive = createArchive([
+    const archive = await createArchive([
       {
         id,
         project: '--tmp-move--',
@@ -121,7 +121,7 @@ test('import keeps later zstd frames when it rewrites a missing cwd', async () =
     const event = Buffer.from(JSON.stringify({ type: 'event', seq: 2 }) + '\n');
     const first = zstdCompressSync(Buffer.from(headerLine(id, missing)));
     const second = zstdCompressSync(event);
-    const archive = createArchive([
+    const archive = await createArchive([
       {
         id,
         project: '--tmp-move--',
@@ -149,7 +149,7 @@ test('import rejects a mismatched log header', async () => {
   const root = await mkdtemp(join(tmpdir(), 'session-cleanup-backup-'));
   try {
     const id = 'session-import-two';
-    const archive = createArchive([
+    const archive = await createArchive([
       {
         id,
         project: '--tmp--',
