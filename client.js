@@ -257,6 +257,7 @@ window.__ModuleLoader__.load({
       backupCwdNote: '{n} 个会话的原工作目录不存在，已改写到 {path}。',
       refresh: '刷新',
       refreshing: '刷新中…',
+      refreshed: '已刷新',
       refreshFailed: '刷新失败：{message}',
       trashTitle: '回收站',
       trashLoading: '正在读取回收站…',
@@ -414,6 +415,7 @@ window.__ModuleLoader__.load({
       backupCwdNote: '{n} sessions pointed at a directory that does not exist here; rewritten to {path}.',
       refresh: 'Refresh',
       refreshing: 'Refreshing…',
+      refreshed: 'Refreshed',
       refreshFailed: 'Refresh failed: {message}',
       trashTitle: 'Recycle bin',
       trashLoading: 'Loading the recycle bin…',
@@ -2080,18 +2082,24 @@ window.__ModuleLoader__.load({
       // A session deleted while its Agent was still loaded stays in the Host's
       // in-memory list with no storage left. It cannot be detached from here,
       // so hide those rows: they are gone, not broken.
-      const refreshAll = useCallback(async () => {
-        setRefreshing(true);
-        try {
-          if (typeof refreshSessions === 'function') await refreshSessions();
-          const body = await callTrash('orphans');
-          setOrphans(new Set(Array.isArray(body.ids) ? body.ids : []));
-        } catch (failure) {
-          showNotice(t('refreshFailed', { message: failure !== null && failure !== undefined && failure.message ? failure.message : String(failure) }), 'error');
-        } finally {
-          setRefreshing(false);
-        }
-      }, [refreshSessions, showNotice, t]);
+      // `manual` marks the toolbar button: only a pressed refresh reports back,
+      // so the automatic refresh on mount stays silent.
+      const refreshAll = useCallback(
+        async (manual = false) => {
+          setRefreshing(true);
+          try {
+            if (typeof refreshSessions === 'function') await refreshSessions();
+            const body = await callTrash('orphans');
+            setOrphans(new Set(Array.isArray(body.ids) ? body.ids : []));
+            if (manual) showNotice(t('refreshed'), 'success');
+          } catch (failure) {
+            showNotice(t('refreshFailed', { message: failure !== null && failure !== undefined && failure.message ? failure.message : String(failure) }), 'error');
+          } finally {
+            setRefreshing(false);
+          }
+        },
+        [refreshSessions, showNotice, t],
+      );
 
       useEffect(() => {
         void refreshAll();
@@ -2544,7 +2552,7 @@ window.__ModuleLoader__.load({
                 t('showArchived'),
               ),
               h('button', { type: 'button', className: 'wsc-btn', onClick: () => setBackupOpen(true) }, t('backup')),
-              h('button', { type: 'button', className: 'wsc-btn wsc-btn-refresh', disabled: refreshing, onClick: () => void refreshAll() }, refreshing ? t('refreshing') : t('refresh')),
+              h('button', { type: 'button', className: 'wsc-btn wsc-btn-refresh', disabled: refreshing, onClick: () => void refreshAll(true) }, refreshing ? t('refreshing') : t('refresh')),
               h('button', { type: 'button', className: 'wsc-btn', onClick: () => setTrashOpen(true) }, t('trashOpen')),
               h('span', { className: 'wsc-spacer' }),
             ),
