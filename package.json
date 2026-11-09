@@ -1,6 +1,6 @@
 {
   "name": "@local/session-cleanup",
-  "version": "1.9.3",
+  "version": "1.9.4",
   "private": true,
   "type": "module",
   "description": "Session cleanup panel for DeepSeek Harness workspaces: archive, recycle-bin deletion, restore, and conversation transcripts.",

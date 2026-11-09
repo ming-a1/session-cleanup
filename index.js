@@ -550,7 +550,11 @@ async function handleImport(ctx, req, res) {
     if (typeof payload.workspaceId === 'string' && payload.workspaceId.length > 0) {
       targetWorkspace = ctx.workspaceRegistry.get(payload.workspaceId);
       if (targetWorkspace === undefined) throw new RouteError(404, 'workspace not found');
-      targetCwd = await realpath(targetWorkspace.path);
+      try {
+        targetCwd = await realpath(targetWorkspace.path);
+      } catch {
+        throw new RouteError(400, `workspace directory does not exist: ${targetWorkspace.path}`);
+      }
       forceCwd = true;
     } else {
       try {

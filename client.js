@@ -245,6 +245,7 @@ window.__ModuleLoader__.load({
       backupTargetWorkspace: '导入到工作区',
       backupAttachmentsRestored: '已恢复 {n} 个附件',
       backupAttachmentsMissing: '有 {n} 个附件缺失，相关会话可能无法继续对话',
+      backupWorkspaceMissing: '目标工作区目录不存在：{path}（请先创建该目录，或换一个工作区）',
       backupAutoWorkspace: '自动（按会话原目录）',
       backupCwdNote: '{n} 个会话的原工作目录不存在，已改写到 {path}。',
       refresh: '刷新',
@@ -401,6 +402,7 @@ window.__ModuleLoader__.load({
       backupTargetWorkspace: 'Import into workspace',
       backupAttachmentsRestored: 'Restored {n} attachments',
       backupAttachmentsMissing: '{n} attachments are missing; affected sessions may not continue',
+      backupWorkspaceMissing: 'Target workspace directory does not exist: {path} (create it or pick another workspace)',
       backupAutoWorkspace: 'Automatic (each session\'s own folder)',
       backupCwdNote: '{n} sessions pointed at a directory that does not exist here; rewritten to {path}.',
       refresh: 'Refresh',
@@ -1254,7 +1256,9 @@ window.__ModuleLoader__.load({
           setNotice(note);
           if (inputRef.current !== null) inputRef.current.value = '';
         } catch (failure) {
-          setNotice(t('backupImportFailed', { message: messageOf(failure) }));
+          const message = messageOf(failure);
+          const missing = /workspace directory does not exist: (.+)$/.exec(message);
+          setNotice(missing === null ? t('backupImportFailed', { message }) : t('backupWorkspaceMissing', { path: missing[1] }));
         } finally {
           setBusy(null);
         }
