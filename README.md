@@ -37,6 +37,6 @@ https://raw.githubusercontent.com/ming-a1/session-cleanup/main/plugin-market.jso
 
 ## 注意
 
-- 运行中的会话不能删除或移动；仍在内存中的会话需要重启 `dsh web` 后才能移动
+- 运行中的会话不能删除；仍加载在内存中的会话删除后，需重启 `dsh web` 才会从原生侧栏彻底消失
 - 仅适配 JSONL 会话后端；不符合预期时删除会安全中止，不会误删
 - 导入文件上限 64 MB（含附件）；备份不含回收站、归档和置顶状态
