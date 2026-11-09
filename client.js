@@ -239,7 +239,9 @@ window.__ModuleLoader__.load({
       runningLocked: '运行中，不能选择',
       deleteRunningBlocked: '会话正在运行中，不可删除；等这一轮结束再试。',
       backupSelected: '备份已选中（{n}）',
-      backupStarted: '已开始导出备份…',
+      backupPreparing: '正在导出备份…',
+      backupExported: '已导出 {n} 个会话。',
+      backupDownloadFailed: '导出失败：{message}',
       backupTargetWorkspace: '导入到工作区',
       backupAttachmentsRestored: '已恢复 {n} 个附件',
       backupAttachmentsMissing: '有 {n} 个附件缺失，相关会话可能无法继续对话',
@@ -393,7 +395,9 @@ window.__ModuleLoader__.load({
       runningLocked: 'Running; cannot be selected',
       deleteRunningBlocked: 'This session is running and cannot be deleted; wait for the turn to finish.',
       backupSelected: 'Back up selected ({n})',
-      backupStarted: 'Backup download started…',
+      backupPreparing: 'Preparing the backup…',
+      backupExported: 'Exported {n} sessions.',
+      backupDownloadFailed: 'Export failed: {message}',
       backupTargetWorkspace: 'Import into workspace',
       backupAttachmentsRestored: 'Restored {n} attachments',
       backupAttachmentsMissing: '{n} attachments are missing; affected sessions may not continue',
@@ -713,37 +717,55 @@ window.__ModuleLoader__.load({
       return body.item;
     }
 
-    /** Strip characters that break a download filename. */
-    function sanitizeBackupName(value) {
-      const cleaned = String(value ?? '')
-        .replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .replace(/[. ]+$/g, '');
-      return cleaned.slice(0, 80) || '会话备份';
-    }
-
-    /** Backup filename from the first session title and the session count. */
-    function backupFilename(title, count) {
-      const base = sanitizeBackupName(title);
-      return `${count > 1 ? `${base} 等${count}个会话` : base}.tar.gz`;
-    }
-
     /**
-     * Start a native browser download for one backup export.
+     * Download one backup through the Host route.
      *
-     * A same-origin GET keeps the transfer in the browser's download manager,
-     * so progress shows immediately and large archives never buffer in memory.
+     * A fetch keeps the request authenticated by the browser's same-origin
+     * cookies and lets failures surface as a readable message; the response is
+     * then handed to the browser as a blob download.
      */
-    function startBackup(sessionIds, filename) {
-      const query = sessionIds === undefined ? 'all=1' : 'ids=' + encodeURIComponent(sessionIds.join(','));
+    async function downloadBackup(sessionIds) {
+      const payload = sessionIds === undefined ? { action: 'backup-export' } : { action: 'backup-export', sessionIds };
+      const response = await fetch(DELETE_ROUTE, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        let message = 'HTTP ' + response.status;
+        try {
+          const body = await response.json();
+          if (body !== null && typeof body.error === 'string') message = body.error;
+        } catch {
+          // Non-JSON error page.
+        }
+        throw new Error(message);
+      }
+      const disposition = response.headers.get('content-disposition') || '';
+      const match = /filename="([^"]+)"/.exec(disposition);
+      let filename = match !== null ? match[1] : 'dsh-sessions-backup.tar.gz';
+      const encodedName = response.headers.get('x-backup-name');
+      if (encodedName !== null && encodedName.length > 0) {
+        try {
+          filename = decodeURIComponent(encodedName);
+        } catch {
+          // Keep the ASCII fallback when the header is malformed.
+        }
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
-      anchor.href = '/session-cleanup/export?' + query;
+      anchor.href = url;
       anchor.download = filename;
       anchor.style.display = 'none';
       document.body.appendChild(anchor);
       anchor.click();
-      window.setTimeout(() => anchor.remove(), 1500);
+      window.setTimeout(() => {
+        anchor.remove();
+        URL.revokeObjectURL(url);
+      }, 30000);
+      return { filename, count: Number(response.headers.get('x-session-count') || '0') };
     }
 
     /** Upload one backup archive to the Host import route. */
@@ -1195,10 +1217,18 @@ window.__ModuleLoader__.load({
         }
       };
 
-      const exportAll = () => {
+      const exportAll = async () => {
         if (busy !== null) return;
-        startBackup(undefined, '会话备份-全部会话.tar.gz');
-        setNotice(t('backupStarted'));
+        setBusy('export');
+        setNotice(null);
+        try {
+          const outcome = await downloadBackup();
+          setNotice(t('backupExported', { n: outcome.count }));
+        } catch (failure) {
+          setNotice(t('backupDownloadFailed', { message: messageOf(failure) }));
+        } finally {
+          setBusy(null);
+        }
       };
 
       const importFile = async () => {
@@ -1274,7 +1304,7 @@ window.__ModuleLoader__.load({
               h(
                 'div',
                 { className: 'wsc-backup-actions' },
-                h('button', { type: 'button', className: 'wsc-btn', disabled: busy !== null, onClick: () => void exportAll() }, t('backupExportAll')),
+                h('button', { type: 'button', className: 'wsc-btn', disabled: busy !== null, onClick: () => void exportAll() }, busy === 'export' ? t('backupPreparing') : t('backupExportAll')),
               ),
             ),
             h(
@@ -2021,6 +2051,7 @@ window.__ModuleLoader__.load({
       const [trashOpen, setTrashOpen] = useState(false);
       const [backupOpen, setBackupOpen] = useState(false);
       const [refreshing, setRefreshing] = useState(false);
+      const [exporting, setExporting] = useState(false);
       const [orphans, setOrphans] = useState(() => new Set());
 
       // A session deleted while its Agent was still loaded stays in the Host's
@@ -2222,7 +2253,8 @@ window.__ModuleLoader__.load({
       // A backup follows the same ownership as deletion: the row's session plus
       // every subagent beneath it, even when search or archiving hides them.
       const backupSingle = useCallback(
-        (id) => {
+        async (id) => {
+          if (exporting) return;
           // Build the parent -> children index from every known session, so the
           // backup covers subagents hidden by search, scope, or archiving.
           const children = new Map();
@@ -2239,12 +2271,18 @@ window.__ModuleLoader__.load({
             for (const child of children.get(current) ?? []) walk(child);
           };
           walk(id);
-          const row = byId[id];
-          const title = row !== undefined ? row.displayTitle || row.title || '' : '';
-          startBackup(family, backupFilename(title, family.length));
-          setNotice(t('backupStarted'));
+          setExporting(true);
+          setNotice(t('backupPreparing'));
+          try {
+            const outcome = await downloadBackup(family);
+            setNotice(t('backupExported', { n: outcome.count }));
+          } catch (failure) {
+            setNotice(t('backupDownloadFailed', { message: failure !== null && failure !== undefined && failure.message ? failure.message : String(failure) }));
+          } finally {
+            setExporting(false);
+          }
         },
-        [byId, t],
+        [byId, exporting, t],
       );
 
       useEffect(() => {
@@ -2413,11 +2451,18 @@ window.__ModuleLoader__.load({
       const selectedArchived = selectedIds.filter((id) => archivedSet.has(id));
       const selectedActive = selectedIds.filter((id) => !archivedSet.has(id));
 
-      const backupSelected = () => {
-        const first = byId[selectedIds[0]];
-        const title = first !== undefined ? first.displayTitle || first.title || '' : '';
-        startBackup([...selectedIds], backupFilename(title, selectedIds.length));
-        setNotice(t('backupStarted'));
+      const backupSelected = async () => {
+        if (exporting || selectedIds.length === 0) return;
+        setExporting(true);
+        setNotice(t('backupPreparing'));
+        try {
+          const outcome = await downloadBackup([...selectedIds]);
+          setNotice(t('backupExported', { n: outcome.count }));
+        } catch (failure) {
+          setNotice(t('backupDownloadFailed', { message: failure !== null && failure !== undefined && failure.message ? failure.message : String(failure) }));
+        } finally {
+          setExporting(false);
+        }
       };
 
 
