@@ -259,7 +259,6 @@ window.__ModuleLoader__.load({
       backupCwdNote: '{n} 个会话的原工作目录不存在，已改写到 {path}。',
       refresh: '刷新',
       refreshing: '刷新中…',
-      refreshed: '已刷新',
       refreshFailed: '刷新失败：{message}',
       trashTitle: '回收站',
       trashLoading: '正在读取回收站…',
@@ -417,7 +416,6 @@ window.__ModuleLoader__.load({
       backupCwdNote: '{n} sessions pointed at a directory that does not exist here; rewritten to {path}.',
       refresh: 'Refresh',
       refreshing: 'Refreshing…',
-      refreshed: 'Refreshed',
       refreshFailed: 'Refresh failed: {message}',
       trashTitle: 'Recycle bin',
       trashLoading: 'Loading the recycle bin…',
@@ -2105,10 +2103,10 @@ window.__ModuleLoader__.load({
       // A session deleted while its Agent was still loaded stays in the Host's
       // in-memory list with no storage left. It cannot be detached from here,
       // so hide those rows: they are gone, not broken.
-      // `manual` marks the toolbar button: only a pressed refresh reports back,
-      // so the automatic refresh on mount stays silent.
+      // The toolbar button and the automatic refresh on mount share one path;
+      // the press is acknowledged by the spinner, not by a notice.
       const refreshAll = useCallback(
-        async (manual = false) => {
+        async () => {
           // A local refresh can finish in a few milliseconds; hold the spinner
           // for one full turn so the press is visibly acknowledged.
           const started = Date.now();
@@ -2117,7 +2115,6 @@ window.__ModuleLoader__.load({
             if (typeof refreshSessions === 'function') await refreshSessions();
             const body = await callTrash('orphans');
             setOrphans(new Set(Array.isArray(body.ids) ? body.ids : []));
-            if (manual) showNotice(t('refreshed'), 'success');
           } catch (failure) {
             showNotice(t('refreshFailed', { message: failure !== null && failure !== undefined && failure.message ? failure.message : String(failure) }), 'error');
           } finally {
@@ -2582,7 +2579,7 @@ window.__ModuleLoader__.load({
               h('button', { type: 'button', className: 'wsc-btn', onClick: () => setBackupOpen(true) }, t('backup')),
               h(
                 'button',
-                { type: 'button', className: 'wsc-btn wsc-btn-refresh', disabled: refreshing, onClick: () => void refreshAll(true) },
+                { type: 'button', className: 'wsc-btn wsc-btn-refresh', disabled: refreshing, onClick: () => void refreshAll() },
                 h(RefreshIcon, { spinning: refreshing }),
                 refreshing ? t('refreshing') : t('refresh'),
               ),
