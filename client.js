@@ -49,7 +49,9 @@ window.__ModuleLoader__.load({
       '.wsc-btn:disabled{opacity:.45;cursor:not-allowed}',
       '.wsc-btn-danger{color:var(--dsw-alias-state-error-primary);border-color:var(--dsw-alias-state-error-primary)}',
       '.wsc-btn-small{height:26px;padding:0 10px;border-radius:13px;font-size:12px}',
-      '.wsc-btn-refresh{min-width:86px;justify-content:center}',
+      '.wsc-btn-refresh{min-width:96px;justify-content:center}',
+      '.wsc-spin{animation:wsc-rotate .7s linear infinite}',
+      '@keyframes wsc-rotate{to{transform:rotate(360deg)}}',
       '.wsc-link{padding:2px 6px;border:0;border-radius:8px;background:none;color:var(--dsw-alias-brand-primary);font:inherit;font-size:12px;white-space:nowrap;cursor:pointer}',
       '.wsc-link:hover{background:var(--dsw-alias-bg-layer-2)}',
       '.wsc-group{position:relative;margin:0 0 16px;border:.5px solid var(--dsw-alias-border-l1);border-radius:14px;background:var(--dsw-alias-bg-layer-1)}',
@@ -860,6 +862,27 @@ window.__ModuleLoader__.load({
         },
         h('circle', { cx: 7, cy: 7, r: 4.5 }),
         h('path', { d: 'M10.5 10.5L14 14' }),
+      );
+    }
+
+    /** Circular arrow; it spins while a refresh is in flight. */
+    function RefreshIcon({ spinning }) {
+      return h(
+        'svg',
+        {
+          width: 13,
+          height: 13,
+          viewBox: '0 0 16 16',
+          fill: 'none',
+          stroke: 'currentColor',
+          strokeWidth: 1.6,
+          strokeLinecap: 'round',
+          strokeLinejoin: 'round',
+          'aria-hidden': 'true',
+          className: spinning ? 'wsc-spin' : undefined,
+        },
+        h('path', { d: 'M13.2 8a5.2 5.2 0 1 1-1.6-3.75' }),
+        h('path', { d: 'M13.4 2.6v3.2h-3.2' }),
       );
     }
 
@@ -2086,6 +2109,9 @@ window.__ModuleLoader__.load({
       // so the automatic refresh on mount stays silent.
       const refreshAll = useCallback(
         async (manual = false) => {
+          // A local refresh can finish in a few milliseconds; hold the spinner
+          // for one full turn so the press is visibly acknowledged.
+          const started = Date.now();
           setRefreshing(true);
           try {
             if (typeof refreshSessions === 'function') await refreshSessions();
@@ -2095,6 +2121,8 @@ window.__ModuleLoader__.load({
           } catch (failure) {
             showNotice(t('refreshFailed', { message: failure !== null && failure !== undefined && failure.message ? failure.message : String(failure) }), 'error');
           } finally {
+            const elapsed = Date.now() - started;
+            if (elapsed < 700) await new Promise((resolve) => window.setTimeout(resolve, 700 - elapsed));
             setRefreshing(false);
           }
         },
@@ -2552,7 +2580,12 @@ window.__ModuleLoader__.load({
                 t('showArchived'),
               ),
               h('button', { type: 'button', className: 'wsc-btn', onClick: () => setBackupOpen(true) }, t('backup')),
-              h('button', { type: 'button', className: 'wsc-btn wsc-btn-refresh', disabled: refreshing, onClick: () => void refreshAll(true) }, refreshing ? t('refreshing') : t('refresh')),
+              h(
+                'button',
+                { type: 'button', className: 'wsc-btn wsc-btn-refresh', disabled: refreshing, onClick: () => void refreshAll(true) },
+                h(RefreshIcon, { spinning: refreshing }),
+                refreshing ? t('refreshing') : t('refresh'),
+              ),
               h('button', { type: 'button', className: 'wsc-btn', onClick: () => setTrashOpen(true) }, t('trashOpen')),
               h('span', { className: 'wsc-spacer' }),
             ),
