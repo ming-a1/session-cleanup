@@ -11,7 +11,7 @@
  * the directory from the backend's own root and validates it before removing
  * anything (see `lib/cleanup.js`).
  */
-import { basename, dirname, resolve as resolvePath } from 'node:path';
+import { basename, dirname, join, resolve as resolvePath } from 'node:path';
 import { readFile, realpath } from 'node:fs/promises';
 
 import {
