@@ -95,6 +95,13 @@ window.__ModuleLoader__.load({
       '.wsc-footer-inner{display:flex;flex-wrap:wrap;align-items:center;gap:8px;box-sizing:border-box;width:100%;max-width:880px;margin:0 auto}',
       '.wsc-footer-info{margin-right:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-secondary);font-size:12px}',
       '.wsc-notice{position:fixed;left:50%;bottom:24px;z-index:70;transform:translateX(-50%);padding:8px 14px;border:.5px solid var(--dsw-alias-border-l2);border-radius:12px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font-size:13px}',
+      '.wsc-notice-warn{color:var(--dsw-alias-state-warn-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 45%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 12%,var(--dsw-alias-bg-layer-1))}',
+      '.wsc-notice-success{color:var(--dsw-alias-state-success-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-success-primary) 45%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 12%,var(--dsw-alias-bg-layer-1))}',
+      '.wsc-notice-error{color:var(--dsw-alias-state-error-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary) 45%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 12%,var(--dsw-alias-bg-layer-1))}',
+      '.wsc-dialog-note{margin:0 0 10px;padding:8px 10px;border-radius:10px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);font-size:12px;overflow-wrap:anywhere}',
+      '.wsc-dialog-note-warn{color:var(--dsw-alias-state-warn-primary);background:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 10%,transparent)}',
+      '.wsc-dialog-note-success{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 10%,transparent)}',
+      '.wsc-dialog-note-error{color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 10%,transparent)}',
       '.wsc-overlay{position:fixed;inset:0;z-index:80;pointer-events:auto;display:flex;align-items:center;justify-content:center;padding:24px;background:color-mix(in srgb,var(--dsw-alias-label-primary) 42%,transparent)}',
       '.wsc-overlay-nested{z-index:90}',
       '.wsc-mi-wrap{position:relative}',
@@ -1185,7 +1192,12 @@ window.__ModuleLoader__.load({
       const [file, setFile] = useState(null);
       const [targetWorkspaceId, setTargetWorkspaceId] = useState('');
       const [notice, setNotice] = useState(null);
+      const [noticeTone, setNoticeTone] = useState('info');
       const [result, setResult] = useState(null);
+      const showNotice = (message, tone = 'info') => {
+        setNoticeTone(tone);
+        setNotice(message);
+      };
 
       const messageOf = (failure) => (failure !== null && failure !== undefined && failure.message ? failure.message : String(failure));
 
@@ -1222,12 +1234,12 @@ window.__ModuleLoader__.load({
       const exportAll = async () => {
         if (busy !== null) return;
         setBusy('export');
-        setNotice(null);
+        showNotice(t('backupPreparing'), 'warn');
         try {
           const outcome = await downloadBackup();
-          setNotice(t('backupExported', { n: outcome.count }));
+          showNotice(t('backupExported', { n: outcome.count }), 'success');
         } catch (failure) {
-          setNotice(t('backupDownloadFailed', { message: messageOf(failure) }));
+          showNotice(t('backupDownloadFailed', { message: messageOf(failure) }), 'error');
         } finally {
           setBusy(null);
         }
@@ -1236,7 +1248,7 @@ window.__ModuleLoader__.load({
       const importFile = async () => {
         if (busy !== null || file === null) return;
         if (file.size > 64 * 1024 * 1024) {
-          setNotice(t('backupFileTooLarge'));
+          showNotice(t('backupFileTooLarge'), 'error');
           return;
         }
         setBusy('import');
@@ -1253,12 +1265,12 @@ window.__ModuleLoader__.load({
           if (attached > 0) note += ' ' + t('backupAttachmentsRestored', { n: attached });
           const missingAttachments = Number(body.attachments !== undefined && body.attachments !== null ? body.attachments.missing : 0);
           if (missingAttachments > 0) note += ' ' + t('backupAttachmentsMissing', { n: missingAttachments });
-          setNotice(note);
+          showNotice(note, 'success');
           if (inputRef.current !== null) inputRef.current.value = '';
         } catch (failure) {
           const message = messageOf(failure);
           const missing = /workspace directory does not exist: (.+)$/.exec(message);
-          setNotice(missing === null ? t('backupImportFailed', { message }) : t('backupWorkspaceMissing', { path: missing[1] }));
+          showNotice(missing === null ? t('backupImportFailed', { message }) : t('backupWorkspaceMissing', { path: missing[1] }), 'error');
         } finally {
           setBusy(null);
         }
@@ -1353,7 +1365,7 @@ window.__ModuleLoader__.load({
                 h('button', { type: 'button', className: 'wsc-btn', disabled: busy !== null || file === null, onClick: () => void importFile() }, busy === 'import' ? t('backupImporting') : t('backupImport')),
               ),
             ),
-            notice !== null ? h('p', { className: 'wsc-dialog-warn' }, notice) : null,
+            notice !== null ? h('p', { className: 'wsc-dialog-note wsc-dialog-note-' + noticeTone }, notice) : null,
             result !== null
               ? h(
                   React.Fragment,
@@ -2058,6 +2070,13 @@ window.__ModuleLoader__.load({
       const [exporting, setExporting] = useState(false);
       const [orphans, setOrphans] = useState(() => new Set());
 
+      const [notice, setNotice] = useState(null);
+      const [noticeTone, setNoticeTone] = useState('info');
+      const showNotice = useCallback((message, tone = 'info') => {
+        setNoticeTone(tone);
+        setNotice(message);
+      }, []);
+
       // A session deleted while its Agent was still loaded stays in the Host's
       // in-memory list with no storage left. It cannot be detached from here,
       // so hide those rows: they are gone, not broken.
@@ -2068,11 +2087,11 @@ window.__ModuleLoader__.load({
           const body = await callTrash('orphans');
           setOrphans(new Set(Array.isArray(body.ids) ? body.ids : []));
         } catch (failure) {
-          setNotice(t('refreshFailed', { message: failure !== null && failure !== undefined && failure.message ? failure.message : String(failure) }));
+          showNotice(t('refreshFailed', { message: failure !== null && failure !== undefined && failure.message ? failure.message : String(failure) }), 'error');
         } finally {
           setRefreshing(false);
         }
-      }, [refreshSessions, t]);
+      }, [refreshSessions, showNotice, t]);
 
       useEffect(() => {
         void refreshAll();
@@ -2080,7 +2099,6 @@ window.__ModuleLoader__.load({
 
       const [purgeIds, setPurgeIds] = useState(null);
       const [restoring, setRestoring] = useState(false);
-      const [notice, setNotice] = useState(null);
 
       useEffect(() => {
         if (notice === null) return undefined;
@@ -2276,17 +2294,17 @@ window.__ModuleLoader__.load({
           };
           walk(id);
           setExporting(true);
-          setNotice(t('backupPreparing'));
+          showNotice(t('backupPreparing'), 'warn');
           try {
             const outcome = await downloadBackup(family);
-            setNotice(t('backupExported', { n: outcome.count }));
+            showNotice(t('backupExported', { n: outcome.count }), 'success');
           } catch (failure) {
-            setNotice(t('backupDownloadFailed', { message: failure !== null && failure !== undefined && failure.message ? failure.message : String(failure) }));
+            showNotice(t('backupDownloadFailed', { message: failure !== null && failure !== undefined && failure.message ? failure.message : String(failure) }), 'error');
           } finally {
             setExporting(false);
           }
         },
-        [byId, exporting, t],
+        [byId, exporting, showNotice, t],
       );
 
       useEffect(() => {
@@ -2393,9 +2411,9 @@ window.__ModuleLoader__.load({
             for (const id of done.ids) if (!failedSet.has(id)) next.delete(id);
             return next;
           });
-          if (failedIds.length === 0) setNotice(t('archiveNotice', { n: ok }));
+          if (failedIds.length === 0) showNotice(t('archiveNotice', { n: ok }), 'success');
         },
-        [t],
+        [showNotice, t],
       );
 
       const restoreIds = useCallback(
@@ -2418,9 +2436,9 @@ window.__ModuleLoader__.load({
             for (const id of list) next.delete(id);
             return next;
           });
-          setNotice(failed > 0 ? t('partialRestore', { ok, failed }) : t('restored', { n: ok }));
+          showNotice(failed > 0 ? t('partialRestore', { ok, failed }) : t('restored', { n: ok }), failed > 0 ? 'warn' : 'success');
         },
-        [restoring, t, unarchiveSession],
+        [restoring, showNotice, t, unarchiveSession],
       );
 
       const settlePurge = useCallback(
@@ -2432,11 +2450,11 @@ window.__ModuleLoader__.load({
             return next;
           });
           if (deleted.length > 0) {
-            setNotice(t('purgeDoneNotice', { n: deleted.length }));
+            showNotice(t('purgeDoneNotice', { n: deleted.length }), 'success');
             void refreshAll();
           }
         },
-        [refreshAll, t],
+        [refreshAll, showNotice, t],
       );
 
       const labels = useMemo(() => {
@@ -2458,12 +2476,12 @@ window.__ModuleLoader__.load({
       const backupSelected = async () => {
         if (exporting || selectedIds.length === 0) return;
         setExporting(true);
-        setNotice(t('backupPreparing'));
+        showNotice(t('backupPreparing'), 'warn');
         try {
           const outcome = await downloadBackup([...selectedIds]);
-          setNotice(t('backupExported', { n: outcome.count }));
+          showNotice(t('backupExported', { n: outcome.count }), 'success');
         } catch (failure) {
-          setNotice(t('backupDownloadFailed', { message: failure !== null && failure !== undefined && failure.message ? failure.message : String(failure) }));
+          showNotice(t('backupDownloadFailed', { message: failure !== null && failure !== undefined && failure.message ? failure.message : String(failure) }), 'error');
         } finally {
           setExporting(false);
         }
@@ -2636,7 +2654,7 @@ window.__ModuleLoader__.load({
               : null,
           ),
         ),
-        notice !== null ? h('div', { className: 'wsc-notice', role: 'status', 'aria-live': 'polite' }, notice) : null,
+        notice !== null ? h('div', { className: 'wsc-notice wsc-notice-' + noticeTone, role: 'status', 'aria-live': 'polite' }, notice) : null,
         transcriptId !== null ? h(PortalFrame, null, h(TranscriptDialog, { id: transcriptId, t, onClose: () => setTranscriptId(null) })) : null,
         backupOpen
           ? h(
